@@ -366,7 +366,12 @@ function route() {
   $('#side').classList.remove('open'); renderSide(); window.scrollTo(0, r === 'lesson' ? scrollY : 0);
 }
 window.route = route; window.toast = toast; window.st = st; window.save = save;
-addEventListener('hashchange', () => { if (location.hash.startsWith('#lesson')) lessonTab = 'learn'; route(); scrollTo(0, 0); });
+addEventListener('hashchange', () => { if (location.hash.startsWith('#lesson')) lessonTab = 'learn'; document.getElementById('side')?.classList.remove('open'); route(); scrollTo(0, 0); });
+// Mobile menu closes when you tap anywhere outside it
+addEventListener('pointerdown', e => { const side = document.getElementById('side'); if (side?.classList.contains('open') && !side.contains(e.target) && !e.target.closest('.mobtop button')) side.classList.remove('open'); });
+// Scrollbars stay hidden until you hover or scroll an area (see .scrolling in style.css)
+addEventListener('scroll', e => { const el = e.target === document ? document.documentElement : e.target; if (!el.classList) return; el.classList.add('scrolling'); clearTimeout(el._sbT); el._sbT = setTimeout(() => el.classList.remove('scrolling'), 900); }, true);
+addEventListener('mousemove', e => document.documentElement.classList.toggle('sb-edge', e.clientX > innerWidth - 18), { passive: true });
 
 applyTheme();
 window.TUT = Tutor.mount(() => {

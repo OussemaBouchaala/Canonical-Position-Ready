@@ -288,3 +288,10 @@ a.player:hover{border-color:var(--acc)}
 .swatches button.on{border-color:var(--tx);box-shadow:0 0 0 2px var(--bg) inset}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--acc2);outline-offset:2px}
 @media(max-width:700px){.mist .mrow{grid-template-columns:1fr}.trow{grid-template-columns:1fr 80px 40px}}
+
+/* scrollbars: invisible until you hover or scroll an area, then a thin rounded thumb that fades in */
+@property --sb{syntax:'<color>';inherits:false;initial-value:transparent}
+:root{--sbc:rgba(154,163,184,.45)}
+:root[data-theme="light"]{--sbc:rgba(94,101,119,.38)}
+*{scrollbar-width:thin;scrollbar-color:var(--sb) transparent;transition:--sb .35s}
+:not(html):hover,.scrolling,html.sb-edge{--sb:var(--sbc)}

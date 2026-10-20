@@ -138,6 +138,9 @@ Current context in the platform: ${context()}`;
 
     fab.onclick = () => box.classList.toggle('open');
     box.querySelector('#tX').onclick = () => box.classList.remove('open');
+    // Clicking anywhere outside the chat (or pressing Escape) closes it; buttons that open Kube are left alone
+    document.addEventListener('pointerdown', e => { if (box.classList.contains('open') && !box.contains(e.target) && !fab.contains(e.target) && !dlg.contains(e.target) && !e.target.closest('[onclick*="TUT."]')) box.classList.remove('open'); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && dlg.hidden && box.classList.contains('open')) box.classList.remove('open'); });
     box.querySelector('#tClr').onclick = () => { history = []; msgs.innerHTML = ''; hello(); };
     box.querySelector('#tSet').onclick = () => srv ? openSettings() : null;
     box.querySelectorAll('.quick button').forEach(b => b.onclick = () => { input.value = b.dataset.q; if (!b.dataset.q.endsWith('\n')) box.querySelector('#tForm').requestSubmit(); else input.focus(); });
