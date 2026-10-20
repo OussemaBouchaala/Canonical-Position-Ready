@@ -6,7 +6,7 @@ const LEVELS = ['Intern', 'Apprentice', 'Pod Wrangler', 'Deployer', 'Cluster Ope
 const defaults = () => ({ xp: 0, done: {}, quiz: {}, labs: {}, labXp: {}, yaml: {}, missions: {}, bosses: {}, flash: {}, flashReviews: 0, flags: {}, badges: {}, vids: {}, days: [], tutorQs: 0, theme: 'dark', cur: null, epoch: 0,
   profile: { name: 'Oussema', role: 'Python & Kubernetes Software Engineer @ Canonical (target)', avatar: '🧑‍💻' },
   prefs: { goal: 60, accent: 'orange', size: 'm', motion: true, lessonMode: 'steps' },
-  daily: {}, qstats: { answered: 0, correct: 0 }, step: {}, read: {}, checks: {}, notes: {} });
+  daily: {}, qstats: { answered: 0, correct: 0 }, step: {}, read: {}, checks: {}, notes: {}, grades: {} });
 let st = defaults();
 try { Object.assign(st, JSON.parse(localStorage.getItem(LSK) || '{}')); } catch {}
 const SERVER = location.protocol.startsWith('http');
@@ -18,7 +18,7 @@ const mergeStates = (a, b) => {
   if ((a.epoch || 0) !== (b.epoch || 0)) return { ...defaults(), ...((a.epoch || 0) > (b.epoch || 0) ? a : b) };
   const m = { ...defaults(), ...b, ...a };
   ['xp', 'flashReviews', 'tutorQs'].forEach(k => { m[k] = Math.max(a[k] || 0, b[k] || 0); });
-  ['done', 'quiz', 'yaml', 'missions', 'bosses', 'badges', 'flags', 'labXp', 'vids', 'read', 'checks', 'notes'].forEach(k => { m[k] = { ...(b[k] || {}), ...(a[k] || {}) }; });
+  ['done', 'quiz', 'yaml', 'missions', 'bosses', 'badges', 'flags', 'labXp', 'vids', 'read', 'checks', 'notes', 'grades'].forEach(k => { m[k] = { ...(b[k] || {}), ...(a[k] || {}) }; });
   m.labs = { ...(b.labs || {}) }; Object.entries(a.labs || {}).forEach(([k, v]) => { m.labs[k] = { ...(m.labs[k] || {}) }; Object.entries(v).forEach(([i, x]) => { m.labs[k][i] = x || !!m.labs[k][i]; }); });
   m.flash = { ...(b.flash || {}) }; Object.entries(a.flash || {}).forEach(([i, c]) => { const o = m.flash[i]; if (!o || (c.t || c.due || 0) >= (o.t || o.due || 0)) m.flash[i] = c; });
   m.days = [...new Set([...(b.days || []), ...(a.days || [])])].sort();
@@ -30,7 +30,7 @@ const mergeStates = (a, b) => {
 const replaceState = n => { Object.keys(st).forEach(k => delete st[k]); Object.assign(st, n); };
 // Lab steps ticked before XP was tracked per step already paid their XP: record them so re-ticking can't pay again.
 const migrate = () => { const D = defaults(); st.profile = { ...D.profile, ...st.profile }; st.prefs = { ...D.prefs, ...st.prefs }; st.qstats = { ...D.qstats, ...st.qstats };
-  ['daily', 'step', 'read', 'checks', 'notes', 'vids'].forEach(k => { st[k] = st[k] || {}; }); st.labXp = st.labXp || {}; Object.entries(st.labs || {}).forEach(([k, v]) => Object.entries(v).forEach(([i, x]) => { if (x) st.labXp[k + ':' + i] = 1; })); };
+  ['daily', 'step', 'read', 'checks', 'notes', 'grades', 'vids'].forEach(k => { st[k] = st[k] || {}; }); st.labXp = st.labXp || {}; Object.entries(st.labs || {}).forEach(([k, v]) => Object.entries(v).forEach(([i, x]) => { if (x) st.labXp[k + ':' + i] = 1; })); };
 migrate();
 
 function push() {

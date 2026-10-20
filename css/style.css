@@ -151,7 +151,8 @@ h3{font-size:17px;margin:20px 0 8px}
 .chat.open{display:flex}
 .chat header{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
 .chat .msgs{flex:1;overflow:auto;padding:12px}
-.msg{padding:9px 12px;border-radius:12px;margin-bottom:8px;max-width:92%;font-size:14px;white-space:pre-wrap}
+.msg{padding:9px 12px;border-radius:12px;margin-bottom:8px;max-width:92%;font-size:14px;overflow-wrap:anywhere}
+.msg.u{white-space:pre-wrap}
 .msg.u{background:var(--acc);color:#fff;margin-left:auto}
 .msg.a{background:var(--card2)}
 .msg.a pre{white-space:pre;font-size:12.5px}
@@ -317,3 +318,17 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .app.collapsed .side{display:none}.app .side.open{display:block}
   .side{top:0;left:0;box-shadow:var(--sh)}
 }
+
+/* Kube's formatted answers (chat bubbles and inline grading) */
+.md>:first-child{margin-top:0}.md>:last-child{margin-bottom:0}
+.md p{margin:0 0 8px}.md h3,.md h4,.md h5,.md h6{margin:12px 0 6px;font-size:15px}.md h3{font-size:16px}
+.md ul,.md ol{margin:0 0 8px;padding-left:20px}.md li{margin:2px 0}.md li.sub{margin-left:16px;list-style:circle}
+.md blockquote{margin:0 0 8px;padding:4px 10px;border-left:3px solid var(--acc);color:var(--mut)}
+.md hr{border:0;border-top:1px solid var(--line);margin:10px 0}
+.md table{border-collapse:collapse;margin:0 0 8px;font-size:13px;display:block;overflow-x:auto}.md th,.md td{border:1px solid var(--line);padding:4px 8px;text-align:left}.md th{background:var(--card)}
+.md code{font-size:.9em}
+.mdcode{position:relative;margin:0 0 8px}.mdcode pre{margin:0;white-space:pre;font-size:12.5px}
+.mdcode span{position:absolute;left:10px;top:4px;font-size:11px;color:#8b95ad}.mdcode span+button+pre{padding-top:24px}
+.mdcode button{position:absolute;right:4px;top:4px;padding:2px 6px;font-size:12px;opacity:.6}.mdcode button:hover{opacity:1}
+.grade-out{margin-top:12px;padding:14px 16px;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:12px;background:var(--card2)}
+.grade-out .gh{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;font-weight:600}

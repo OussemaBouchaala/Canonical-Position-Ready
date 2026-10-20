@@ -44,6 +44,7 @@ const Learn = (() => {
         return head + `<p>Explaining a concept in your own words is the fastest way to find gaps. Write 3–5 sentences about <b>${l.title}</b>, as if to a classmate.</p>
           <textarea id="exp_${l.id}" rows="5" placeholder="In my own words…">${esc(st.notes[l.id] || '')}</textarea>
           <p style="display:flex;gap:8px;flex-wrap:wrap"><button class="pri" onclick="Learn.grade('${l.id}')">🤖 Ask Kube to grade it</button><button onclick="Learn.saveNote('${l.id}')">💾 Save as my note</button></p>
+          <div class="grade-out" id="gr_${l.id}" ${st.grades?.[l.id] ? '' : 'hidden'}>${st.grades?.[l.id] ? gradeBox(st.grades[l.id]) : ''}</div>
           <p class="req">Optional. Your note is saved with your progress and shown on your Profile.</p>`;
       case 'done': {
         const n = (STEPS[l.id] || []).filter(x => x.t === 'check').length, ok = (STEPS[l.id] || []).filter((x, j) => x.t === 'check' && st.checks[`${l.id}:${j + 1}`]).length;
@@ -84,7 +85,18 @@ const Learn = (() => {
   }
   function finish(l) { if (!st.read[l.id]) { st.read[l.id] = Date.now(); setTimeout(() => { gain(15, 'Lesson steps finished 📖'); if (st.prefs.motion) confetti(); }, 300); } }
   function saveNote(id) { const t = document.getElementById('exp_' + id)?.value.trim(); st.notes[id] = t; save(); toast('💾 Note saved'); }
-  function grade(id) { const t = document.getElementById('exp_' + id)?.value.trim(); if (!t) return toast('Write your explanation first'); saveNote(id); TUT.send(`Grade my explanation of "${lesson(id).title}" out of 10. List what is correct, what is missing or wrong, and give a better version in simple words (keep mine recognisable). My explanation:\n${t}`); }
+  const gradeBox = (txt, live) => `<div class="gh"><span>🤖 Kube's feedback</span>${live ? '<span class="req">writing…</span>' : '<button class="ghost" style="padding:2px 8px;font-size:12px" onclick="TUT.open(\'About your feedback on my explanation: \')">💬 Discuss in chat</button>'}</div><div class="md">${TUT.md(txt)}</div>`;
+  async function grade(id) {
+    const t = document.getElementById('exp_' + id)?.value.trim(); if (!t) return toast('Write your explanation first');
+    saveNote(id); const box = document.getElementById('gr_' + id), btn = box.parentElement.querySelector('button.pri');
+    box.hidden = false; box.innerHTML = '<span class="t-dim">🤖 Kube is reading your explanation…</span>'; btn.disabled = true;
+    try {
+      const out = await TUT.once(`Grade my explanation of "${lesson(id).title}" out of 10. Start with "**Score: X/10**", then short sections "What's correct", "Missing or wrong" and "A better version" (simple words, keep mine recognisable). My explanation:\n${t}`, full => { box.innerHTML = gradeBox(full, true); });
+      (st.grades = st.grades || {})[id] = out; save(); box.innerHTML = gradeBox(out);
+    } catch (e) {
+      box.innerHTML = e.message === 'NO_KEY' ? 'Kube needs an AI provider first: <a href="#" onclick="TUT.settings();return false">⚙️ AI settings</a>.' : `<span class="t-err">Kube couldn't grade it: ${esc(e.message)}</span>`;
+    } finally { btn.disabled = false; }
+  }
 
   // ← → keys move between steps when you're not typing
   addEventListener('keydown', e => {
