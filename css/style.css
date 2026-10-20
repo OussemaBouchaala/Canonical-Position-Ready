@@ -202,3 +202,89 @@ h3{font-size:17px;margin:20px 0 8px}
 .valt span{padding:6px 8px 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .valt small{padding:2px 8px 8px;color:var(--mut)}
 .vacts{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:12px;font-size:14px}
+
+/* sidebar player card is a link to the profile */
+a.player{display:block;color:var(--tx);text-decoration:none}
+a.player:hover{border-color:var(--acc)}
+.player .av{font-size:18px}
+
+/* interactive lesson player */
+.stepbar{display:flex;gap:4px;flex-wrap:wrap}
+.stepbar .seg{flex:1;min-width:30px;padding:6px 0;border-radius:8px;font-size:14px;background:var(--card2)}
+.stepbar .seg.past{background:color-mix(in srgb,var(--acc) 30%,var(--card2));border-color:transparent}
+.stepbar .seg.now{background:var(--acc);border-color:var(--acc);color:#fff;transform:scale(1.06)}
+.stepbar .seg:disabled{opacity:.45;cursor:not-allowed}
+.lstep{animation:stepIn .25s ease}
+@keyframes stepIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.step-head{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-bottom:6px}
+.step-head h2{margin:2px 0 4px}
+.step-tools{display:flex;justify-content:flex-end;margin-top:10px}
+.askk{font-size:13px;padding:5px 10px}
+.stepnav{display:flex;justify-content:space-between;margin-top:14px}
+.stepnav button:disabled{opacity:.55;cursor:not-allowed}
+.learn.page .lstep{border-bottom:1px dashed var(--line);padding-bottom:20px;margin-bottom:20px}
+.ex{margin:12px 0 0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.ex pre{margin:0;border:0;border-radius:0}
+.ex-bar{display:flex;justify-content:space-between;align-items:center;padding:4px 10px;background:var(--card2);font-size:12.5px;color:var(--mut)}
+.ex-bar button{font-size:12px;padding:2px 8px}
+.ex.out pre{background:#0d1a12;color:#b7f0cf}
+.predict .q,.qc .q{font-size:16.5px;font-weight:500}
+.predict textarea{margin:6px 0}
+.reveal{background:rgba(62,207,142,.1);border:1px solid var(--ok);border-radius:10px;padding:12px 14px;margin-top:8px}
+.opt:disabled{cursor:default}
+.keys{list-style:none;padding:0;margin:8px 0}
+.keys li{padding:10px 14px 10px 40px;margin:6px 0;border-radius:10px;background:var(--card2);position:relative}
+.keys li::before{content:"🔑";position:absolute;left:12px}
+.mist .mrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.mist .w,.mist .r{padding:10px 12px;border-radius:10px;font-size:14.5px}
+.mist .w{background:rgba(239,91,107,.1);border:1px solid rgba(239,91,107,.4)}
+.mist .r{background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.4)}
+.done-box{text-align:center;padding:10px}
+.done-box .big{font-size:54px}
+
+/* profile */
+.prof-head{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.avatar{width:84px;height:84px;border-radius:50%;background:var(--card2);display:grid;place-items:center;font-size:44px;border:3px solid var(--acc)}
+.ring{--p:0;width:110px;height:110px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--acc) calc(var(--p)*1%),var(--card2) 0)}
+.ring>div{width:84px;height:84px;border-radius:50%;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring small{color:var(--mut);font-size:12px}
+.heat{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,13px);gap:3px;overflow-x:auto;padding-bottom:4px}
+.heat i,.heat-leg i{width:13px;height:13px;border-radius:3px;display:inline-block;background:var(--card2)}
+.heat .h1,.heat-leg .h1{background:color-mix(in srgb,var(--ok) 35%,var(--card2))}
+.heat .h2,.heat-leg .h2{background:color-mix(in srgb,var(--ok) 60%,var(--card2))}
+.heat .h3,.heat-leg .h3{background:color-mix(in srgb,var(--ok) 80%,var(--card2))}
+.heat .h4,.heat-leg .h4{background:var(--ok)}
+.heat-leg{display:flex;gap:3px;align-items:center;margin-top:6px}
+.bars{position:relative;display:flex;gap:6px;align-items:flex-end;height:160px;padding-top:8px}
+.bars .b{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px}
+.bars .b i{width:100%;border-radius:5px 5px 0 0;background:var(--k8s);min-height:2px;max-height:calc(100% - 22px)}
+.bars .b i.goal{background:var(--ok)}
+.bars .b span{font-size:11px;color:var(--mut);height:18px}
+.goal-line{position:absolute;left:0;right:0;border-top:2px dashed var(--warn);pointer-events:none}
+.trow{display:grid;grid-template-columns:1.4fr 1fr 44px;gap:10px;align-items:center;color:var(--tx);text-decoration:none;padding:5px 0;font-size:14px}
+.trow:hover{color:var(--acc2)}
+.trow .bar{margin:0}
+.recent{list-style:none;padding:0;margin:0}
+.recent li{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+.mini-badges{display:flex;flex-wrap:wrap;gap:6px;font-size:24px}
+.mini-badges span{filter:grayscale(1);opacity:.35}
+.mini-badges span.got{filter:none;opacity:1}
+.note{background:var(--card2);border-radius:10px;padding:10px 14px;margin:8px 0}
+.note summary{cursor:pointer;font-weight:500}
+.note p{white-space:pre-wrap}
+
+/* settings controls */
+.fld{display:flex;flex-direction:column;gap:6px;margin:12px 0;font-size:13px;color:var(--mut)}
+.fld input{color:var(--tx)}
+.seg-ctl{display:flex;flex-wrap:wrap;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;width:fit-content;max-width:100%}
+.seg-ctl button{border:0;border-radius:0;border-right:1px solid var(--line);padding:7px 14px;font-size:14px}
+.seg-ctl button:last-child{border-right:0}
+.seg-ctl button.on{background:var(--acc);color:#fff}
+.avatars{display:flex;flex-wrap:wrap;gap:6px}
+.avatars button{font-size:22px;padding:4px 8px}
+.avatars button.on{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc)}
+.swatches{display:flex;gap:10px}
+.swatches button{width:32px;height:32px;border-radius:50%;padding:0;border:2px solid transparent}
+.swatches button.on{border-color:var(--tx);box-shadow:0 0 0 2px var(--bg) inset}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--acc2);outline-offset:2px}
+@media(max-width:700px){.mist .mrow{grid-template-columns:1fr}.trow{grid-template-columns:1fr 80px 40px}}

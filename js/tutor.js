@@ -151,7 +151,8 @@ Current context in the platform: ${context()}`;
 
     if (srv) fetch('/api/llm/settings').then(r => r.json()).then(s => { settings = s; msgs.innerHTML = ''; hello(); refreshHeader(); }).catch(() => { msgs.innerHTML = ''; add('a', '<span class="t-err">Could not load AI settings. Is start.bat running?</span>'); });
     hello();
-    return { open: q => { box.classList.add('open'); if (q) { input.value = q; input.focus(); } }, settings: () => { box.classList.add('open'); openSettings(); }, summary };
+    return { open: q => { box.classList.add('open'); if (q) { input.value = q; input.focus(); } }, settings: () => { box.classList.add('open'); openSettings(); }, summary,
+      send: q => { box.classList.add('open'); input.value = q; box.querySelector('#tForm').requestSubmit(); } };
   }
   return { mount };
 })();

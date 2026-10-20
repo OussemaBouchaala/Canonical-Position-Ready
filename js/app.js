@@ -3,7 +3,10 @@ const $ = s => document.querySelector(s);
 const LSK = 'ca_state_v1';
 const LEVELS = ['Intern', 'Apprentice', 'Pod Wrangler', 'Deployer', 'Cluster Operator', 'Charm Smith', 'MLOps Engineer', 'Kubeflow Hero', 'Canonical-ready 🟠'];
 
-const defaults = () => ({ xp: 0, done: {}, quiz: {}, labs: {}, labXp: {}, yaml: {}, missions: {}, bosses: {}, flash: {}, flashReviews: 0, flags: {}, badges: {}, vids: {}, days: [], tutorQs: 0, theme: 'dark', cur: null, epoch: 0 });
+const defaults = () => ({ xp: 0, done: {}, quiz: {}, labs: {}, labXp: {}, yaml: {}, missions: {}, bosses: {}, flash: {}, flashReviews: 0, flags: {}, badges: {}, vids: {}, days: [], tutorQs: 0, theme: 'dark', cur: null, epoch: 0,
+  profile: { name: 'Oussema', role: 'Python & Kubernetes Software Engineer @ Canonical (target)', avatar: '🧑‍💻' },
+  prefs: { goal: 60, accent: 'orange', size: 'm', motion: true, lessonMode: 'steps' },
+  daily: {}, qstats: { answered: 0, correct: 0 }, step: {}, read: {}, checks: {}, notes: {} });
 let st = defaults();
 try { Object.assign(st, JSON.parse(localStorage.getItem(LSK) || '{}')); } catch {}
 const SERVER = location.protocol.startsWith('http');
@@ -15,15 +18,19 @@ const mergeStates = (a, b) => {
   if ((a.epoch || 0) !== (b.epoch || 0)) return { ...defaults(), ...((a.epoch || 0) > (b.epoch || 0) ? a : b) };
   const m = { ...defaults(), ...b, ...a };
   ['xp', 'flashReviews', 'tutorQs'].forEach(k => { m[k] = Math.max(a[k] || 0, b[k] || 0); });
-  ['done', 'quiz', 'yaml', 'missions', 'bosses', 'badges', 'flags', 'labXp', 'vids'].forEach(k => { m[k] = { ...(b[k] || {}), ...(a[k] || {}) }; });
+  ['done', 'quiz', 'yaml', 'missions', 'bosses', 'badges', 'flags', 'labXp', 'vids', 'read', 'checks', 'notes'].forEach(k => { m[k] = { ...(b[k] || {}), ...(a[k] || {}) }; });
   m.labs = { ...(b.labs || {}) }; Object.entries(a.labs || {}).forEach(([k, v]) => { m.labs[k] = { ...(m.labs[k] || {}) }; Object.entries(v).forEach(([i, x]) => { m.labs[k][i] = x || !!m.labs[k][i]; }); });
   m.flash = { ...(b.flash || {}) }; Object.entries(a.flash || {}).forEach(([i, c]) => { const o = m.flash[i]; if (!o || (c.t || c.due || 0) >= (o.t || o.due || 0)) m.flash[i] = c; });
   m.days = [...new Set([...(b.days || []), ...(a.days || [])])].sort();
+  m.daily = { ...(b.daily || {}) }; Object.entries(a.daily || {}).forEach(([d, v]) => { m.daily[d] = Math.max(v, m.daily[d] || 0); });
+  m.step = { ...(b.step || {}) }; Object.entries(a.step || {}).forEach(([k, v]) => { const o = m.step[k]; m.step[k] = !o ? v : { i: v.i, max: Math.max(v.max, o.max) }; });
+  const qa = a.qstats || {}, qb = b.qstats || {}; m.qstats = (qa.answered || 0) >= (qb.answered || 0) ? { ...defaults().qstats, ...qa } : { ...defaults().qstats, ...qb };
   return m;
 };
 const replaceState = n => { Object.keys(st).forEach(k => delete st[k]); Object.assign(st, n); };
 // Lab steps ticked before XP was tracked per step already paid their XP: record them so re-ticking can't pay again.
-const migrate = () => { st.labXp = st.labXp || {}; Object.entries(st.labs || {}).forEach(([k, v]) => Object.entries(v).forEach(([i, x]) => { if (x) st.labXp[k + ':' + i] = 1; })); };
+const migrate = () => { const D = defaults(); st.profile = { ...D.profile, ...st.profile }; st.prefs = { ...D.prefs, ...st.prefs }; st.qstats = { ...D.qstats, ...st.qstats };
+  ['daily', 'step', 'read', 'checks', 'notes', 'vids'].forEach(k => { st[k] = st[k] || {}; }); st.labXp = st.labXp || {}; Object.entries(st.labs || {}).forEach(([k, v]) => Object.entries(v).forEach(([i, x]) => { if (x) st.labXp[k + ':' + i] = 1; })); };
 migrate();
 
 function push() {
@@ -54,6 +61,7 @@ const summary = () => ({ doneCount: Object.keys(st.done).length, trackDone, miss
 // ---------- gamification
 function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = msg; document.body.append(t); setTimeout(() => t.remove(), 2600); }
 function confetti() {
+  if (st.prefs && !st.prefs.motion) return;
   const c = document.createElement('canvas'); c.className = 'confetti'; c.width = innerWidth; c.height = innerHeight; document.body.append(c);
   const x = c.getContext('2d'), P = Array.from({ length: 140 }, () => ({ x: innerWidth / 2, y: innerHeight / 3, vx: (Math.random() - .5) * 14, vy: Math.random() * -12 - 2, c: ['#e95420', '#3ecf8e', '#4f8cff', '#f5c542', '#b46cff'][Math.floor(Math.random() * 5)], s: 4 + Math.random() * 5 }));
   let f = 0; (function tick() { x.clearRect(0, 0, c.width, c.height); P.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += .35; x.fillStyle = p.c; x.fillRect(p.x, p.y, p.s, p.s); }); if (++f < 110) requestAnimationFrame(tick); else c.remove(); })();
@@ -61,6 +69,8 @@ function confetti() {
 function gain(n, why) {
   const before = level().i; st.xp += n;
   const today = new Date().toISOString().slice(0, 10); if (!st.days.includes(today)) st.days.push(today);
+  const goalBefore = (st.daily[today] || 0) >= st.prefs.goal; st.daily[today] = (st.daily[today] || 0) + n;
+  if (!goalBefore && st.daily[today] >= st.prefs.goal) setTimeout(() => toast(`🎯 Daily goal reached: ${st.prefs.goal} XP today!`), 1800);
   save(); toast(`+${n} XP · ${why}`);
   if (level().i > before) { setTimeout(() => toast(`⬆️ Level up! You are now <b>${level().name}</b>`), 900); confetti(); }
   checkBadges(); renderSide();
@@ -71,9 +81,9 @@ function checkBadges() { const s = summary(); BADGES.forEach(b => { if (!st.badg
 function renderSide() {
   const L = level(), r = location.hash.split('/')[0] || '#home';
   $('#side').innerHTML = `<div class="brand"><div class="logo">◉</div>Canonical Academy</div>
-  <div class="player"><div class="lvl">Lv ${L.i + 1} · ${L.name}</div><div class="bar"><i style="width:${L.pct}%"></i></div>
-    <div class="stats"><span>⚡ ${st.xp} XP</span><span>🔥 ${streak()} day${streak() === 1 ? '' : 's'}</span><span>🎯 ${match()}%</span></div></div>
-  <nav class="nav">${[['#home', '🏠', 'Dashboard'], ['#road', '🗺️', 'Roadmap'], ['#sim', '☸️', 'K8s Simulator'], ['#flash', '🃏', 'Flashcards'], ['#match', '🎯', 'Job match'], ['#badges', '🏅', 'Badges'], ['#settings', '⚙️', 'Settings']]
+  <a class="player" href="#profile" title="Open your profile"><div class="lvl"><span class="av">${st.profile.avatar}</span> ${escH(st.profile.name)} · Lv ${L.i + 1} ${L.name}</div><div class="bar"><i style="width:${L.pct}%"></i></div>
+    <div class="stats"><span>⚡ ${st.xp} XP</span><span>🔥 ${streak()} day${streak() === 1 ? '' : 's'}</span><span>🎯 ${match()}%</span></div></a>
+  <nav class="nav">${[['#home', '🏠', 'Dashboard'], ['#profile', '👤', 'Profile'], ['#road', '🗺️', 'Roadmap'], ['#sim', '☸️', 'K8s Simulator'], ['#flash', '🃏', 'Flashcards'], ['#match', '🎯', 'Job match'], ['#badges', '🏅', 'Badges'], ['#settings', '⚙️', 'Settings']]
     .map(([h, i, t]) => `<a href="${h}" class="${r === h ? 'on' : ''}">${i} ${t}</a>`).join('')}</nav>
   <h3 style="font-size:13px;color:var(--mut);margin:18px 6px 6px">TRACKS</h3>
   <nav class="nav">${TRACKS.map(t => `<a href="#track/${t.id}" class="${location.hash.includes(t.id) ? 'on' : ''}">${t.icon} <span style="flex:1">${t.title.split(':')[0].split('(')[0]}</span><span class="pill">${trackPct(t)}%</span></a>`).join('')}</nav>`;
@@ -84,12 +94,13 @@ const V = {};
 V.home = () => {
   const next = allLessons().find(l => !st.done[l.id]);
   const s = summary();
-  return `<h1>Welcome back, Oussema 👋</h1><p class="sub">Target: <a href="${JOB.url}" target="_blank">${JOB.title}</a> @ Canonical</p>
+  const td = st.daily[new Date().toISOString().slice(0, 10)] || 0, gp = Math.min(100, Math.round(100 * td / st.prefs.goal));
+  return `<h1>Welcome back, ${escH(st.profile.name)} ${st.profile.avatar}</h1><p class="sub">Target: <a href="${JOB.url}" target="_blank">${JOB.title}</a> @ Canonical</p>
   <div class="grid g4">
     <div class="card"><div class="kpi">${match()}%<small> job match</small></div><div class="bar"><i style="width:${match()}%"></i></div></div>
     <div class="card"><div class="kpi">${s.doneCount}<small>/${allLessons().length} lessons</small></div></div>
     <div class="card"><div class="kpi">${pace().diff >= 0 ? '+' : ''}${pace().diff}<small> vs plan</small></div><div class="req">${s.missions}/${Object.keys(MISSIONS).length} sim missions</div></div>
-    <div class="card"><div class="kpi">${Object.keys(st.badges).length}<small>/${BADGES.length} badges</small></div></div></div>
+    <div class="card"><div class="kpi">${td}<small>/${st.prefs.goal} XP today</small></div><div class="bar"><i style="width:${gp}%"></i></div><div class="req">${gp >= 100 ? '🎯 Daily goal done!' : 'Daily goal'} · <a href="#profile">profile</a></div></div></div>
   ${next ? `<div class="card" style="margin-top:16px;border-color:var(--acc)"><span class="pill acc">Up next</span><h2 style="margin:8px 0">${next.track.icon} ${next.title}</h2>
     <p class="sub" style="margin:0 0 12px">${next.track.title} · ⏱ ${next.min} min · ⚡ ${next.xp} XP</p><button class="pri" onclick="location.hash='#lesson/${next.id}'">Continue ▶</button></div>` : `<div class="card"><h2>🏆 All lessons complete. Go apply!</h2></div>`}
   <h2>Daily quest</h2><div class="grid g3">
@@ -136,7 +147,7 @@ V.lesson = id => {
 };
 function nav(l) { const all = allLessons(), i = all.findIndex(x => x.id === l.id); return `<div style="display:flex;justify-content:space-between;margin-top:30px">${i > 0 ? `<button onclick="lessonTab='learn';location.hash='#lesson/${all[i - 1].id}'">← ${all[i - 1].title}</button>` : '<span></span>'}${i < all.length - 1 ? `<button onclick="lessonTab='learn';location.hash='#lesson/${all[i + 1].id}'">${all[i + 1].title} →</button>` : ''}</div>`; }
 function tabView(l) {
-  if (lessonTab === 'learn') return (l.diagram ? `<div class="diagram">${DIAGRAMS[l.diagram]}</div>` : '') + l.body + `<p style="margin-top:20px"><button class="pri" onclick="lessonTab='quiz';route()">Take the quiz →</button></p>`;
+  if (lessonTab === 'learn') return Learn.view(l);
   if (lessonTab === 'watch') { setTimeout(() => loadVideos(l), 0); return `<h3>Videos</h3>${l.videos.map((v, i) => `<div class="vslot card" id="vs_${l.id}_${i}"><h3>🎬 ${v.l}</h3><p class="req">Finding videos…</p></div>`).join('')}
     <h3>Official docs</h3>${l.docs.map(d => `<a class="vid" target="_blank" href="${d.u}"><div class="play" style="background:var(--k8s)">📘</div><div><b>${d.t}</b><div class="req">${d.u}</div></div></a>`).join('') || '<p class="sub">—</p>'}`; }
   if (lessonTab === 'quiz') return quizHTML(l.quiz, 'q_' + l.id);
@@ -185,7 +196,7 @@ function quizHTML(qs, key, boss) {
   return `${boss ? `<div class="card" style="margin-bottom:14px">❤️ <span id="lives_${key}">❤️❤️❤️</span> · need 80% to win</div>` : ''}${qs.map((q, i) => `<div class="q card"><b>${i + 1}. ${q.q}</b>${shuffle(q.o.map((o, j) => [o, j])).map(([o, j]) => `<button class="opt" id="${key}_${i}_${j}" onclick="answer('${key}',${i},${j})">${o}</button>`).join('')}<div id="${key}_e${i}"></div></div>`).join('')}<div id="${key}_res"></div>`;
 }
 window.answer = (key, i, j) => {
-  const Q = QZ[key]; if (Q.ans[i] !== undefined || Q.over) return; const q = Q.qs[i]; Q.ans[i] = j;
+  const Q = QZ[key]; if (Q.ans[i] !== undefined || Q.over) return; const q = Q.qs[i]; Q.ans[i] = j; st.qstats.answered++; if (j === q.a) st.qstats.correct++;
   $(`#${key}_${i}_${q.a}`).classList.add('right'); if (j !== q.a) { $(`#${key}_${i}_${j}`).classList.add('wrong'); if (Q.boss) { Q.lives--; $('#lives_' + key).textContent = '❤️'.repeat(Q.lives) + '🖤'.repeat(3 - Q.lives); } }
   $(`#${key}_e${i}`).innerHTML = `<div class="expl">${j === q.a ? '✅' : '❌'} ${q.e}</div>`;
   if (Q.boss && Q.lives <= 0) { Q.over = true; $(`#${key}_res`).innerHTML = `<div class="card" style="border-color:var(--bad)"><h3>💀 Out of lives</h3><p>Review the lessons and try again.</p><button class="pri" onclick="route()">Retry</button></div>`; return; }
@@ -331,13 +342,8 @@ V.match = () => `<h1>🎯 Job match</h1><p class="sub">Your estimated fit for <a
   <div class="card" style="margin-top:16px"><table class="matrix"><tr><th>Requirement</th><th>Progress</th><th>Train it</th></tr>
   ${JOB.reqs.map(r => `<tr><td>${r.label}</td><td style="width:160px"><div class="bar"><i style="width:${reqPct(r)}%"></i></div>${reqPct(r)}%</td><td>${r.tracks.map(id => `<a href="#track/${id}">${TRACKS.find(t => t.id === id).icon}</a>`).join(' ')}</td></tr>`).join('')}</table></div>
   <div class="callout job">Portfolio checklist (what recruiters actually see): ☐ CV API on Kubernetes with Helm + probes + /metrics · ☐ Kubeflow pipeline + MLflow repo · ☐ your own charm · ☐ 2–3 merged upstream PRs · ☐ CV updated with numbers.</div>`;
-V.settings = () => `<h1>⚙️ Settings</h1><div class="grid g2">
-  <div class="card"><h3>Theme</h3><button onclick="st.theme=st.theme==='dark'?'light':'dark';save();applyTheme()">Toggle light/dark</button></div>
-  <div class="card"><h3>AI tutor</h3><p class="sub">${SERVER ? `Provider: <b id="setProv">${TUT.summary()}</b>. Choose a free provider (Gemini, Groq, OpenRouter, Ollama) or Claude. Keys are saved in <code>config.json</code> on your PC and never sent to the page.` : 'The tutor needs the local server: start the app with <b>start.bat</b>.'}</p>${SERVER ? '<button onclick="TUT.settings()">⚙️ AI settings</button>' : ''}</div>
-  <div class="card"><h3>Plan start date</h3><input type="date" value="${st.start}" onchange="st.start=this.value;save();toast('Plan dates updated')"></div>
-  <div class="card"><h3>Storage</h3><p class="sub">${SERVER ? `Saved to <code>progress.json</code> in your folder (daily backups in <code>backups/</code>, history in <code>activity_log.csv</code>). Last sync: ${syncOk === false ? '❌ failed (is start.bat running?)' : '✅ ok'}` : '⚠️ Opened as a file: progress only in this browser. Use <b>start.bat</b> to save to disk.'}</p></div>
-  <div class="card"><h3>Backup progress</h3><button onclick="exportState()">⬇ Export</button> <label><button onclick="this.nextElementSibling.click()">⬆ Import</button><input type="file" accept=".json" style="display:none" onchange="importState(this.files[0])"></label></div>
-  <div class="card"><h3>Danger zone</h3><button onclick="resetAll()">Reset progress</button>${SERVER ? '<p class="req">A copy of your current progress is saved in <code>backups/</code> first.</p>' : ''}</div></div>`;
+V.settings = () => Pages.settings();
+V.profile = () => Pages.profile();
 window.resetAll = async () => {
   if (!confirm('Reset all progress?')) return;
   if (SERVER) { const r = await fetch('/api/reset', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }).catch(() => null); if (!r || !r.ok) return toast('❌ Reset failed: is start.bat running?'); }
@@ -350,7 +356,7 @@ window.importState = f => f.text().then(t => {
   if (!confirm('Replace your current progress with this file?')) return;
   delete d._rev; replaceState({ ...defaults(), ...d, epoch: Date.now() }); migrate(); save(); setTimeout(() => location.reload(), 900);
 });
-window.applyTheme = () => document.documentElement.dataset.theme = st.theme;
+window.applyTheme = () => Pages.apply();
 
 // ---------- router
 function route() {
