@@ -1,4 +1,6 @@
 config.json
+progress.json
+progress.json.bak
 
 backups/
 activity_log.csv
