@@ -2,7 +2,10 @@
 // API keys are saved in config.json by server.py and never reach the page.
 const Tutor = (() => {
   let settings = null; // { provider, providers: { name: { label, hasKey, keyHint, model, ... } } }
-  let history = [];
+  // The chat is kept in this browser (not in progress.json) so it's still there after a reload
+  const CHK = 'ca_chat_v1';
+  let history = []; try { history = JSON.parse(localStorage.getItem(CHK) || '[]'); } catch {}
+  const keep = () => { history = history.slice(-40); try { localStorage.setItem(CHK, JSON.stringify(history)); } catch {} };
   let context = () => '';
 
   const SYSTEM = () => `You are "Kube", a friendly, rigorous tutor inside "Canonical Academy", a learning platform preparing Oussema Bouchaala (Tunisian engineering student at INSAT, strong in Python, computer vision/YOLO, FastAPI, Docker basics, DVC, ETL; NEW to Kubernetes) for Canonical's role "Python and Kubernetes Software Engineer – Data, Workflows, AI/ML & Analytics" (Charmed Kubeflow, MLflow, Juju charms, MicroK8s).
@@ -86,8 +89,8 @@ Current context in the platform: ${context()}`;
     let msgs = history.slice(-20); while (msgs.length && msgs[0].role !== 'user') msgs = msgs.slice(1);
     let full = '';
     try { full = await stream(msgs, f => { full = f; onDelta(f); }); }
-    catch (e) { full = full || e.partial || ''; if (!full) history.pop(); else history.push({ role: 'assistant', content: full }); throw e; }
-    history.push({ role: 'assistant', content: full });
+    catch (e) { full = full || e.partial || ''; if (!full) history.pop(); else history.push({ role: 'assistant', content: full }); keep(); throw e; }
+    history.push({ role: 'assistant', content: full }); keep();
     return full;
   }
 
@@ -128,6 +131,7 @@ Current context in the platform: ${context()}`;
       if (!ready()) return add('a', `Hi 👋 To chat, pick an AI provider and add its key in <a href="#" data-set>⚙️ AI settings</a>. Free options: Google Gemini, Groq, OpenRouter (":free" models) or Ollama on your PC.`);
       add('a', `Hi Oussema 👋 I'm Kube, your tutor (<code>${esc(cur().label)}</code> · <code>${esc(cur().model)}</code>). Ask me anything about Kubernetes, MLOps or charms. I know which lesson you're on.`);
     };
+    const replay = () => { history.forEach(h => add(h.role === 'user' ? 'u' : 'a', h.role === 'user' ? esc(h.content) : md(h.content))); };
     const refreshHeader = () => { box.querySelector('#tProv').textContent = cur() ? cur().model : 'AI tutor'; const el = document.getElementById('setProv'); if (el) el.textContent = summary(); };
     msgs.addEventListener('click', e => { if (e.target.matches('[data-set]')) { e.preventDefault(); openSettings(); } });
 
@@ -179,7 +183,7 @@ Current context in the platform: ${context()}`;
     // Clicking anywhere outside the chat (or pressing Escape) closes it; buttons that open Kube are left alone
     document.addEventListener('pointerdown', e => { if (box.classList.contains('open') && !box.contains(e.target) && !fab.contains(e.target) && !dlg.contains(e.target) && !e.target.closest('[onclick*="TUT."]')) box.classList.remove('open'); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && dlg.hidden && box.classList.contains('open')) box.classList.remove('open'); });
-    box.querySelector('#tClr').onclick = () => { history = []; msgs.innerHTML = ''; hello(); };
+    box.querySelector('#tClr').onclick = () => { history = []; keep(); msgs.innerHTML = ''; hello(); };
     box.querySelector('#tSet').onclick = () => srv ? openSettings() : null;
     box.querySelectorAll('.quick button').forEach(b => b.onclick = () => { input.value = b.dataset.q; if (!b.dataset.q.endsWith('\n')) box.querySelector('#tForm').requestSubmit(); else input.focus(); });
     input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); box.querySelector('#tForm').requestSubmit(); } });
@@ -190,7 +194,7 @@ Current context in the platform: ${context()}`;
       catch (er) { out.innerHTML = er.message === 'NO_KEY' ? 'Add an API key first in <a href="#" data-set>⚙️ AI settings</a>.' : `<span class="t-err">${esc(er.message)}</span>`; }
     };
 
-    if (srv) fetch('/api/llm/settings').then(r => r.json()).then(s => { settings = s; msgs.innerHTML = ''; hello(); refreshHeader(); }).catch(() => { msgs.innerHTML = ''; add('a', '<span class="t-err">Could not load AI settings. Is start.bat running?</span>'); });
+    if (srv) fetch('/api/llm/settings').then(r => r.json()).then(s => { settings = s; msgs.innerHTML = ''; hello(); replay(); refreshHeader(); }).catch(() => { msgs.innerHTML = ''; add('a', '<span class="t-err">Could not load AI settings. Is start.bat running?</span>'); });
     hello();
     return { open: q => { box.classList.add('open'); if (q) { input.value = q; input.focus(); } }, settings: () => { box.classList.add('open'); openSettings(); }, summary,
       // One question answered outside the chat (e.g. grading inside a lesson); doesn't touch the chat history

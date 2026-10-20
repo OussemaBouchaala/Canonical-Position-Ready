@@ -14,8 +14,8 @@ const Learn = (() => {
   const ask = q => `<button class="ghost askk" onclick="TUT.open(${JSON.stringify(q).replace(/"/g, '&quot;')})" title="Ask the tutor about this step">🤖 Ask Kube</button>`;
   const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   // Steps you must interact with before "Continue" (answer the check, reveal the prediction)
-  const gate = (l, s, i) => (s.t === 'check' && st.checks[`${l.id}:${i}`] === undefined && answered[`${l.id}:${i}`] === undefined) || (s.t === 'predict' && !revealed[`${l.id}:${i}`]);
-  const answered = {}, revealed = {};
+  // Your picks, guesses and reveals are saved (st.picks / st.pred), so a step looks the same when you come back.
+  const gate = (l, s, i) => (s.t === 'check' && st.checks[`${l.id}:${i}`] === undefined && st.picks[`${l.id}:${i}`] === undefined) || (s.t === 'predict' && !st.pred[`${l.id}:${i}`]?.r);
 
   function body(l, s, i) {
     const k = `${l.id}:${i}`, dia = s.d && DIAGRAMS[s.d] ? `<div class="diagram">${DIAGRAMS[s.d]}</div>` : '';
@@ -29,12 +29,12 @@ const Learn = (() => {
           `<div class="step-tools">${ask(`Explain this example line by line (lesson "${l.title}"):\n${s.code}`)}</div>`;
       case 'predict':
         return head + `<div class="predict"><p class="q">${s.q}</p><p class="req">Think of your answer first (say it out loud or type it), then reveal.</p>
-          <textarea id="pg_${k.replace(':', '_')}" rows="2" placeholder="My guess…"></textarea>
+          <textarea id="pg_${k.replace(':', '_')}" rows="2" placeholder="My guess…" oninput="Learn.guess('${k}',this.value)">${esc(st.pred[k]?.g || '')}</textarea>
           <p><button class="pri" onclick="Learn.reveal('${l.id}',${i})">Reveal the answer</button></p>
-          <div class="reveal" ${revealed[k] ? '' : 'hidden'} id="pr_${k.replace(':', '_')}">✅ ${s.a}</div></div>`;
+          <div class="reveal" ${st.pred[k]?.r ? '' : 'hidden'} id="pr_${k.replace(':', '_')}">✅ ${s.a}</div></div>`;
       case 'check': {
-        const done = st.checks[k] !== undefined || answered[k] !== undefined;
-        return head + `<div class="qc" id="qc_${k.replace(':', '_')}"><p class="q">${s.q}</p>${shuffle(s.o.map((o, j) => [o, j])).map(([o, j]) => `<button class="opt ${done && j === s.a ? 'right' : ''}" data-j="${j}" onclick="Learn.check('${l.id}',${i},${j})" ${done ? 'disabled' : ''}>${o}</button>`).join('')}<div class="qc-res">${done ? `<div class="expl">${s.e}</div>` : ''}</div></div>`;
+        const pick = st.picks[k], done = st.checks[k] !== undefined || pick !== undefined;
+        return head + `<div class="qc" id="qc_${k.replace(':', '_')}"><p class="q">${s.q}</p>${shuffle(s.o.map((o, j) => [o, j])).map(([o, j]) => `<button class="opt ${done && j === s.a ? 'right' : ''} ${pick === j && j !== s.a ? 'wrong' : ''}" data-j="${j}" onclick="Learn.check('${l.id}',${i},${j})" ${done ? 'disabled' : ''}>${o}</button>`).join('')}<div class="qc-res">${done ? `<div class="expl">${pick === undefined ? '' : pick === s.a ? '✅ Right!' : '❌ Not quite.'} ${s.e}</div>` : ''}</div></div>`;
       }
       case 'key':
         return head + `<ul class="keys">${s.items.map(x => `<li>${x}</li>`).join('')}</ul>`;
@@ -42,10 +42,10 @@ const Learn = (() => {
         return head + `<div class="mist">${s.items.map(([w, r]) => `<div class="mrow"><div class="w">❌ ${w}</div><div class="r">✅ ${r}</div></div>`).join('')}</div>`;
       case 'explain':
         return head + `<p>Explaining a concept in your own words is the fastest way to find gaps. Write 3–5 sentences about <b>${l.title}</b>, as if to a classmate.</p>
-          <textarea id="exp_${l.id}" rows="5" placeholder="In my own words…">${esc(st.notes[l.id] || '')}</textarea>
+          <textarea id="exp_${l.id}" rows="5" placeholder="In my own words…" oninput="Learn.draft('${l.id}',this.value)">${esc(st.notes[l.id] || '')}</textarea>
           <p style="display:flex;gap:8px;flex-wrap:wrap"><button class="pri" onclick="Learn.grade('${l.id}')">🤖 Ask Kube to grade it</button><button onclick="Learn.saveNote('${l.id}')">💾 Save as my note</button></p>
           <div class="grade-out" id="gr_${l.id}" ${st.grades?.[l.id] ? '' : 'hidden'}>${st.grades?.[l.id] ? gradeBox(st.grades[l.id]) : ''}</div>
-          <p class="req">Optional. Your note is saved with your progress and shown on your Profile.</p>`;
+          <p class="req">Optional. What you type is saved automatically and shown on your Profile.</p>`;
       case 'done': {
         const n = (STEPS[l.id] || []).filter(x => x.t === 'check').length, ok = (STEPS[l.id] || []).filter((x, j) => x.t === 'check' && st.checks[`${l.id}:${j + 1}`]).length;
         return head + `<div class="done-box"><div class="big">🎉</div><p>You went through every step of <b>${l.title}</b>.${n ? ` Quick checks right first time: <b>${ok}/${n}</b>.` : ''}</p>
@@ -73,10 +73,10 @@ const Learn = (() => {
   const lesson = id => allLessons().find(x => x.id === id);
   function go(id, j) { const l = lesson(id), S = steps(l), p = pos(id); if (j < 0 || j >= S.length) return; if (j > p.max + 1) return; if (j > p.i && gate(l, S[p.i], p.i)) return; p.i = j; p.max = Math.max(p.max, j); save(); rerender(l); }
   function unlock() { const b = document.getElementById('stepNext'); if (b) { b.disabled = false; b.removeAttribute('title'); b.textContent = 'Continue →'; } }
-  function reveal(id, i) { const k = `${id}:${i}`; revealed[k] = 1; const el = document.getElementById('pr_' + k.replace(':', '_')); if (el) el.hidden = false; unlock(); }
+  function reveal(id, i) { const k = `${id}:${i}`; st.pred[k] = { ...st.pred[k], r: 1 }; save(); const el = document.getElementById('pr_' + k.replace(':', '_')); if (el) el.hidden = false; unlock(); }
   function check(id, i, j) {
-    const s = steps(lesson(id))[i], k = `${id}:${i}`, box = document.getElementById('qc_' + k.replace(':', '_')); if (!box || answered[k] !== undefined) return;
-    answered[k] = j; const right = j === s.a;
+    const s = steps(lesson(id))[i], k = `${id}:${i}`, box = document.getElementById('qc_' + k.replace(':', '_')); if (!box || st.picks[k] !== undefined) return;
+    st.picks[k] = j; const right = j === s.a;
     box.querySelectorAll('.opt').forEach(b => { b.disabled = true; if (+b.dataset.j === s.a) b.classList.add('right'); else if (+b.dataset.j === j) b.classList.add('wrong'); });
     box.querySelector('.qc-res').innerHTML = `<div class="expl">${right ? '✅ Right!' : '❌ Not quite.'} ${s.e}</div>`;
     st.qstats.answered++; if (right) st.qstats.correct++;
@@ -84,6 +84,9 @@ const Learn = (() => {
     unlock();
   }
   function finish(l) { if (!st.read[l.id]) { st.read[l.id] = Date.now(); setTimeout(() => { gain(15, 'Lesson steps finished 📖'); if (st.prefs.motion) confetti(); }, 300); } }
+  let typeT; const later = f => { clearTimeout(typeT); typeT = setTimeout(f, 600); };
+  function guess(k, v) { st.pred[k] = { ...st.pred[k], g: v }; later(save); }
+  function draft(id, v) { st.notes[id] = v.trim(); later(save); }
   function saveNote(id) { const t = document.getElementById('exp_' + id)?.value.trim(); st.notes[id] = t; save(); toast('💾 Note saved'); }
   const gradeBox = (txt, live) => `<div class="gh"><span>🤖 Kube's feedback</span>${live ? '<span class="req">writing…</span>' : '<button class="ghost" style="padding:2px 8px;font-size:12px" onclick="TUT.open(\'About your feedback on my explanation: \')">💬 Discuss in chat</button>'}</div><div class="md">${TUT.md(txt)}</div>`;
   async function grade(id) {
@@ -106,5 +109,5 @@ const Learn = (() => {
   });
 
   const progress = id => { const l = lesson(id); if (!l) return 0; const n = steps(l).length; return Math.round(100 * ((st.step[id]?.max || 0) + 1) / n); };
-  return { view, go, reveal, check, grade, saveNote, progress, count: l => steps(l).length };
+  return { view, go, reveal, check, grade, saveNote, guess, draft, progress, count: l => steps(l).length };
 })();

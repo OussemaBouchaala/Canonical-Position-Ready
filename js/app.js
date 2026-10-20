@@ -6,7 +6,7 @@ const LEVELS = ['Intern', 'Apprentice', 'Pod Wrangler', 'Deployer', 'Cluster Ope
 const defaults = () => ({ xp: 0, done: {}, quiz: {}, labs: {}, labXp: {}, yaml: {}, missions: {}, bosses: {}, flash: {}, flashReviews: 0, flags: {}, badges: {}, vids: {}, days: [], tutorQs: 0, theme: 'dark', cur: null, epoch: 0,
   profile: { name: 'Oussema', role: 'Python & Kubernetes Software Engineer @ Canonical (target)', avatar: '🧑‍💻' },
   prefs: { goal: 60, accent: 'orange', size: 'm', motion: true, lessonMode: 'steps' },
-  daily: {}, qstats: { answered: 0, correct: 0 }, step: {}, read: {}, checks: {}, notes: {}, grades: {} });
+  daily: {}, qstats: { answered: 0, correct: 0 }, step: {}, read: {}, checks: {}, notes: {}, grades: {}, qans: {}, picks: {}, pred: {}, yamlIn: {}, tab: {}, simYaml: '' });
 let st = defaults();
 try { Object.assign(st, JSON.parse(localStorage.getItem(LSK) || '{}')); } catch {}
 const SERVER = location.protocol.startsWith('http');
@@ -18,7 +18,7 @@ const mergeStates = (a, b) => {
   if ((a.epoch || 0) !== (b.epoch || 0)) return { ...defaults(), ...((a.epoch || 0) > (b.epoch || 0) ? a : b) };
   const m = { ...defaults(), ...b, ...a };
   ['xp', 'flashReviews', 'tutorQs'].forEach(k => { m[k] = Math.max(a[k] || 0, b[k] || 0); });
-  ['done', 'quiz', 'yaml', 'missions', 'bosses', 'badges', 'flags', 'labXp', 'vids', 'read', 'checks', 'notes', 'grades'].forEach(k => { m[k] = { ...(b[k] || {}), ...(a[k] || {}) }; });
+  ['done', 'quiz', 'yaml', 'missions', 'bosses', 'badges', 'flags', 'labXp', 'vids', 'read', 'checks', 'notes', 'grades', 'qans', 'picks', 'pred', 'yamlIn', 'tab'].forEach(k => { m[k] = { ...(b[k] || {}), ...(a[k] || {}) }; });
   m.labs = { ...(b.labs || {}) }; Object.entries(a.labs || {}).forEach(([k, v]) => { m.labs[k] = { ...(m.labs[k] || {}) }; Object.entries(v).forEach(([i, x]) => { m.labs[k][i] = x || !!m.labs[k][i]; }); });
   m.flash = { ...(b.flash || {}) }; Object.entries(a.flash || {}).forEach(([i, c]) => { const o = m.flash[i]; if (!o || (c.t || c.due || 0) >= (o.t || o.due || 0)) m.flash[i] = c; });
   m.days = [...new Set([...(b.days || []), ...(a.days || [])])].sort();
@@ -30,7 +30,7 @@ const mergeStates = (a, b) => {
 const replaceState = n => { Object.keys(st).forEach(k => delete st[k]); Object.assign(st, n); };
 // Lab steps ticked before XP was tracked per step already paid their XP: record them so re-ticking can't pay again.
 const migrate = () => { const D = defaults(); st.profile = { ...D.profile, ...st.profile }; st.prefs = { ...D.prefs, ...st.prefs }; st.qstats = { ...D.qstats, ...st.qstats };
-  ['daily', 'step', 'read', 'checks', 'notes', 'grades', 'vids'].forEach(k => { st[k] = st[k] || {}; }); st.labXp = st.labXp || {}; Object.entries(st.labs || {}).forEach(([k, v]) => Object.entries(v).forEach(([i, x]) => { if (x) st.labXp[k + ':' + i] = 1; })); };
+  ['daily', 'step', 'read', 'checks', 'notes', 'grades', 'vids', 'qans', 'picks', 'pred', 'yamlIn', 'tab'].forEach(k => { st[k] = st[k] || {}; }); st.labXp = st.labXp || {}; Object.entries(st.labs || {}).forEach(([k, v]) => Object.entries(v).forEach(([i, x]) => { if (x) st.labXp[k + ':' + i] = 1; })); };
 migrate();
 
 function push() {
@@ -158,7 +158,7 @@ V.lesson = id => {
   if (!tabs.find(t => t[0] === lessonTab)) lessonTab = 'learn';
   return `<p><a href="#track/${l.track.id}">← ${l.track.title}</a></p><div class="lesson-head"><div><h1>${l.title}</h1><p class="sub">${l.track.icon} ${l.track.title} · ⏱ ${l.min} min · ⚡ ${l.xp} XP ${st.done[id] ? '· <span class="pill ok">completed</span>' : ''}</p></div>
   <button onclick="TUT.open('Explain the lesson \\'${l.title.replace(/'/g, '')}\\' to me simply, with an analogy, then check my understanding with one question.')">🤖 Ask Kube about this</button></div>
-  <div class="tabs">${tabs.map(([k, n]) => `<button class="${k === lessonTab ? 'on' : ''}" onclick="lessonTab='${k}';route()">${n}</button>`).join('')}</div>
+  <div class="tabs">${tabs.map(([k, n]) => `<button class="${k === lessonTab ? 'on' : ''}" onclick="lessonTab='${k}';st.tab['${l.id}']='${k}';save();route()">${n}</button>`).join('')}</div>
   <div class="content" id="lc">${tabView(l)}</div>${nav(l)}`;
 };
 function nav(l) { const all = allLessons(), i = all.findIndex(x => x.id === l.id); return `<div style="display:flex;justify-content:space-between;margin-top:30px">${i > 0 ? `<button onclick="lessonTab='learn';location.hash='#lesson/${all[i - 1].id}'">← ${all[i - 1].title}</button>` : '<span></span>'}${i < all.length - 1 ? `<button onclick="lessonTab='learn';location.hash='#lesson/${all[i + 1].id}'">${all[i + 1].title} →</button>` : ''}</div>`; }
@@ -207,36 +207,51 @@ const QZ = {};
 const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 function quizHTML(qs, key, boss) {
   // Options are shuffled on every render, so the right answer is never in a predictable position.
-  // Button ids keep the ORIGINAL option index, so answers and highlighting work unchanged.
-  QZ[key] = { qs, ans: {}, boss, lives: 3 };
-  return `${boss ? `<div class="card" style="margin-bottom:14px">❤️ <span id="lives_${key}">❤️❤️❤️</span> · need 80% to win</div>` : ''}${qs.map((q, i) => `<div class="q card"><b>${i + 1}. ${q.q}</b>${shuffle(q.o.map((o, j) => [o, j])).map(([o, j]) => `<button class="opt" id="${key}_${i}_${j}" onclick="answer('${key}',${i},${j})">${o}</button>`).join('')}<div id="${key}_e${i}"></div></div>`).join('')}<div id="${key}_res"></div>`;
+  // Button ids keep the ORIGINAL option (and question) index, so saved answers and highlighting still match.
+  // Your answers are saved (st.qans), so leaving the page and coming back shows the quiz as you left it.
+  const ans = { ...(st.qans[key] || {}) }, wrong = Object.entries(ans).filter(([i, j]) => qs[i] && j !== qs[i].a).length;
+  QZ[key] = { qs, ans, boss, lives: 3 - wrong, over: boss && wrong >= 3 };
+  const order = boss ? shuffle(qs.map((_, i) => i)) : qs.map((_, i) => i), done = Object.keys(ans).length;
+  return `${boss ? `<div class="card" style="margin-bottom:14px">❤️ <span id="lives_${key}">${hearts(QZ[key].lives)}</span> · need 80% to win</div>` : ''}
+    ${done && done < qs.length && !QZ[key].over ? `<p class="req">↩️ You answered ${done}/${qs.length}. Carry on where you left off, or <a href="#" onclick="quizRetry('${key}');return false">start over</a>.</p>` : ''}
+    ${order.map((i, n) => { const q = qs[i], a = ans[i], got = a !== undefined; return `<div class="q card"><b>${n + 1}. ${q.q}</b>${shuffle(q.o.map((o, j) => [o, j])).map(([o, j]) => `<button class="opt ${got && j === q.a ? 'right' : ''} ${got && j === a && a !== q.a ? 'wrong' : ''}" id="${key}_${i}_${j}" onclick="answer('${key}',${i},${j})" ${got || QZ[key].over ? 'disabled' : ''}>${o}</button>`).join('')}<div id="${key}_e${i}">${got ? `<div class="expl">${a === q.a ? '✅' : '❌'} ${q.e}</div>` : ''}</div></div>`; }).join('')}
+    <div id="${key}_res">${quizResult(key)}</div>`;
+}
+const hearts = n => '❤️'.repeat(Math.max(0, n)) + '🖤'.repeat(3 - Math.max(0, n));
+window.quizRetry = key => { delete st.qans[key]; save(); route(); };
+function quizResult(key) {
+  const Q = QZ[key], retry = `<button onclick="quizRetry('${key}')">🔁 Retry</button>`;
+  if (Q.over) return `<div class="card" style="border-color:var(--bad)"><h3>💀 Out of lives</h3><p>Review the lessons and try again.</p>${retry}</div>`;
+  if (Object.keys(Q.ans).length < Q.qs.length) return '';
+  const score = Q.qs.filter((q, k) => Q.ans[k] === q.a).length, pass = score / Q.qs.length >= (Q.boss ? .8 : .7);
+  return `<div class="card" style="border-color:${pass ? 'var(--ok)' : 'var(--warn)'}"><h3>${pass ? '🎉 Passed' : '🔁 Almost'}: ${score}/${Q.qs.length}</h3>${pass ? `<p class="req">Saved. Practice again any time (XP is only given once).</p>${retry}` : `<p>Need ${Q.boss ? 80 : 70}%. Re-read and retry.</p>${retry}`}</div>`;
 }
 window.answer = (key, i, j) => {
-  const Q = QZ[key]; if (Q.ans[i] !== undefined || Q.over) return; const q = Q.qs[i]; Q.ans[i] = j; st.qstats.answered++; if (j === q.a) st.qstats.correct++;
-  $(`#${key}_${i}_${q.a}`).classList.add('right'); if (j !== q.a) { $(`#${key}_${i}_${j}`).classList.add('wrong'); if (Q.boss) { Q.lives--; $('#lives_' + key).textContent = '❤️'.repeat(Q.lives) + '🖤'.repeat(3 - Q.lives); } }
+  const Q = QZ[key]; if (Q.ans[i] !== undefined || Q.over) return; const q = Q.qs[i]; Q.ans[i] = j; st.qans[key] = { ...Q.ans }; st.qstats.answered++; if (j === q.a) st.qstats.correct++;
+  document.querySelectorAll(`[id^="${key}_${i}_"]`).forEach(b => b.disabled = true);
+  $(`#${key}_${i}_${q.a}`).classList.add('right'); if (j !== q.a) { $(`#${key}_${i}_${j}`).classList.add('wrong'); if (Q.boss) { Q.lives--; $('#lives_' + key).textContent = hearts(Q.lives); } }
   $(`#${key}_e${i}`).innerHTML = `<div class="expl">${j === q.a ? '✅' : '❌'} ${q.e}</div>`;
-  if (Q.boss && Q.lives <= 0) { Q.over = true; $(`#${key}_res`).innerHTML = `<div class="card" style="border-color:var(--bad)"><h3>💀 Out of lives</h3><p>Review the lessons and try again.</p><button class="pri" onclick="route()">Retry</button></div>`; return; }
-  if (Object.keys(Q.ans).length === Q.qs.length) {
-    const score = Q.qs.filter((q, k) => Q.ans[k] === q.a).length, pct = score / Q.qs.length;
-    const pass = pct >= (Q.boss ? .8 : .7);
-    $(`#${key}_res`).innerHTML = `<div class="card" style="border-color:${pass ? 'var(--ok)' : 'var(--warn)'}"><h3>${pass ? '🎉 Passed' : '🔁 Almost'}: ${score}/${Q.qs.length}</h3>${pass ? '' : '<p>Need ' + (Q.boss ? 80 : 70) + '%. Re-read and retry.</p><button onclick="route()">Retry</button>'}</div>`;
-    if (pass) {
-      if (Q.boss) { const tid = key.slice(5); if (!st.bosses[tid]) { st.bosses[tid] = 1; gain(150, 'Boss defeated 👑'); confetti(); } }
-      else { const id = key.slice(2); if (!st.done[id]) { st.done[id] = Date.now(); const l = allLessons().find(x => x.id === id); gain(l.xp, 'Lesson complete'); } }
-      renderSide();
-    }
+  if (Q.boss && Q.lives <= 0) Q.over = true;
+  $(`#${key}_res`).innerHTML = quizResult(key);
+  const score = Q.qs.filter((q, k) => Q.ans[k] === q.a).length;
+  if (!Q.over && Object.keys(Q.ans).length === Q.qs.length && score / Q.qs.length >= (Q.boss ? .8 : .7)) {
+    if (Q.boss) { const tid = key.slice(5); if (!st.bosses[tid]) { st.bosses[tid] = 1; gain(150, 'Boss defeated 👑'); confetti(); } }
+    else { const id = key.slice(2); if (!st.done[id]) { st.done[id] = Date.now(); const l = allLessons().find(x => x.id === id); gain(l.xp, 'Lesson complete'); } }
+    renderSide();
   }
+  save();
 };
-V.boss = id => { const t = TRACKS.find(x => x.id === id); return `<p><a href="#track/${id}">← ${t.title}</a></p><h1>👹 Boss battle: ${t.title}</h1><p class="sub">${st.bosses[id] ? '✅ Already defeated. Replay for practice.' : 'Defeat it to complete the track.'}</p>${quizHTML([...t.boss].sort(() => Math.random() - .5), 'boss_' + id, true)}`; };
+V.boss = id => { const t = TRACKS.find(x => x.id === id); return `<p><a href="#track/${id}">← ${t.title}</a></p><h1>👹 Boss battle: ${t.title}</h1><p class="sub">${st.bosses[id] ? '✅ Already defeated. Replay for practice.' : 'Defeat it to complete the track.'}</p>${quizHTML(t.boss, 'boss_' + id, true)}`; };
 
 // ---------- YAML puzzle
 function yamlHTML(l) {
   const y = l.yaml; let i = 0; const answers = [];
-  const html = y.tpl.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c])).replace(/\[\[(.+?)\]\]/g, (_, a) => { answers.push(a); return `<input data-i="${i}" size="${Math.max(6, a.length + 1)}" id="y_${l.id}_${i++}" placeholder="?">`; });
+  const html = y.tpl.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c])).replace(/\[\[(.+?)\]\]/g, (_, a) => { answers.push(a); return `<input data-i="${i}" size="${Math.max(6, a.length + 1)}" id="y_${l.id}_${i}" placeholder="?" value="${escH((st.yamlIn[l.id] || [])[i] || '')}" class="${st.yaml[l.id] ? 'ok' : ''}" oninput="yamlKeep('${l.id}',${i++},this.value)">`; });
   window['YA_' + l.id] = answers; window['YT_' + l.id] = y.tpl.replace(/\[\[|\]\]/g, '');
   return `<h3>🧩 ${y.title}</h3><p class="sub">Fill the blanks with the right Kubernetes keywords. Case matters, as in real YAML.</p><div class="yamlp">${html}</div>
-  <p><button class="pri" onclick="checkYaml('${l.id}')">Check</button> <button onclick="TUT.open('Explain every line of this manifest:\\n'+window.YT_${l.id})">🤖 Explain each line</button></p><div id="yres"></div>`;
+  <p><button class="pri" onclick="checkYaml('${l.id}')">Check</button> <button onclick="TUT.open('Explain every line of this manifest:\\n'+window.YT_${l.id})">🤖 Explain each line</button></p><div id="yres">${st.yaml[l.id] ? '<div class="callout tip">✅ Solved. Your answers are saved.</div>' : ''}</div>`;
 }
+let yT; window.yamlKeep = (id, i, v) => { (st.yamlIn[id] = st.yamlIn[id] || [])[i] = v; clearTimeout(yT); yT = setTimeout(save, 600); };
 window.checkYaml = id => { const A = window['YA_' + id]; let ok = 0; A.forEach((a, i) => { const e = $(`#y_${id}_${i}`); const good = e.value.trim() === a; e.className = good ? 'ok' : 'bad'; ok += good; });
   $('#yres').innerHTML = ok === A.length ? '<div class="callout tip">✅ Perfect manifest!</div>' : `<div class="callout">${ok}/${A.length} correct. Red ones need fixing.</div>`;
   if (ok === A.length && !st.yaml[id]) { st.yaml[id] = 1; gain(25, 'YAML puzzle solved'); } };
@@ -288,7 +303,7 @@ function simHTML(mid) {
   const ms = mid ? [mid] : Object.keys(MISSIONS);
   return `<div class="sim"><div><div class="term"><div class="out" id="tout"></div><div class="in"><span>oussema@ubuntu:~$</span><input id="tin" autocomplete="off" spellcheck="false" placeholder="kubectl get nodes   (type help)"></div></div>
     <div class="chips">${['kubectl get pods -o wide', 'kubectl get deploy', 'kubectl get svc', 'kubectl get events', 'help'].map(c => `<button onclick="simRun('${c}')">${c}</button>`).join('')}</div>
-    <details style="margin-top:8px"><summary>📝 YAML editor (use <code>kubectl apply -f editor</code>)</summary><textarea id="simYaml" rows="14" class="mono" style="margin-top:8px">${SIM_YAML}</textarea></details></div>
+    <details style="margin-top:8px"><summary>📝 YAML editor (use <code>kubectl apply -f editor</code>)</summary><textarea id="simYaml" rows="14" class="mono" style="margin-top:8px" oninput="st.simYaml=this.value;clearTimeout(yT);yT=setTimeout(save,600)">${escH(st.simYaml || SIM_YAML)}</textarea></details></div>
     <div><div class="cluster" id="cview"></div></div></div>
   <h3>🎮 Missions</h3><div class="missions" id="mlist">${ms.map(m => missionHTML(m)).join('')}</div>`;
 }
@@ -382,7 +397,7 @@ function route() {
   $('#side').classList.remove('open'); renderSide(); window.scrollTo(0, r === 'lesson' ? scrollY : 0);
 }
 window.route = route; window.toast = toast; window.st = st; window.save = save;
-addEventListener('hashchange', () => { if (location.hash.startsWith('#lesson')) lessonTab = 'learn'; document.getElementById('side')?.classList.remove('open'); document.getElementById('pmenu')?.classList.remove('open'); route(); scrollTo(0, 0); });
+addEventListener('hashchange', () => { if (location.hash.startsWith('#lesson')) lessonTab = st.tab[location.hash.split('/')[1]] || 'learn'; document.getElementById('side')?.classList.remove('open'); document.getElementById('pmenu')?.classList.remove('open'); route(); scrollTo(0, 0); });
 // Mobile menu closes when you tap anywhere outside it
 addEventListener('pointerdown', e => { const side = document.getElementById('side'); if (side?.classList.contains('open') && !side.contains(e.target) && !e.target.closest('#menuBtn')) side.classList.remove('open');
   const pm = document.getElementById('pmenu'); if (pm?.classList.contains('open') && !e.target.closest('.pwrap')) pm.classList.remove('open'); });
@@ -400,5 +415,6 @@ window.TUT = Tutor.mount(() => {
   if (SERVER) { try { const r = await (await fetch('/api/progress')).json();
     const before = JSON.stringify(r.state || {}); replaceState(mergeStates(st, r.state || {})); migrate(); serverRev = r.rev || 0; syncOk = true;
     if (JSON.stringify(st) !== before) save(); else try { localStorage.setItem(LSK, JSON.stringify(st)); } catch {} } catch { syncOk = false; } }
+  if (location.hash.startsWith('#lesson')) lessonTab = st.tab[location.hash.split('/')[1]] || 'learn';
   applyTheme(); route();
 })();
