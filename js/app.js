@@ -81,12 +81,28 @@ function checkBadges() { const s = summary(); BADGES.forEach(b => { if (!st.badg
 function renderSide() {
   const L = level(), r = location.hash.split('/')[0] || '#home';
   $('#side').innerHTML = `<div class="brand"><div class="logo">◉</div>Canonical Academy</div>
-  <a class="player" href="#profile" title="Open your profile"><div class="lvl"><span class="av">${st.profile.avatar}</span> ${escH(st.profile.name)} · Lv ${L.i + 1} ${L.name}</div><div class="bar"><i style="width:${L.pct}%"></i></div>
-    <div class="stats"><span>⚡ ${st.xp} XP</span><span>🔥 ${streak()} day${streak() === 1 ? '' : 's'}</span><span>🎯 ${match()}%</span></div></a>
-  <nav class="nav">${[['#home', '🏠', 'Dashboard'], ['#profile', '👤', 'Profile'], ['#road', '🗺️', 'Roadmap'], ['#sim', '☸️', 'K8s Simulator'], ['#flash', '🃏', 'Flashcards'], ['#match', '🎯', 'Job match'], ['#badges', '🏅', 'Badges'], ['#settings', '⚙️', 'Settings']]
+  <nav class="nav">${[['#home', '🏠', 'Dashboard'], ['#road', '🗺️', 'Roadmap'], ['#sim', '☸️', 'K8s Simulator'], ['#flash', '🃏', 'Flashcards'], ['#match', '🎯', 'Job match'], ['#badges', '🏅', 'Badges']]
     .map(([h, i, t]) => `<a href="${h}" class="${r === h ? 'on' : ''}">${i} ${t}</a>`).join('')}</nav>
   <h3 style="font-size:13px;color:var(--mut);margin:18px 6px 6px">TRACKS</h3>
   <nav class="nav">${TRACKS.map(t => `<a href="#track/${t.id}" class="${location.hash.includes(t.id) ? 'on' : ''}">${t.icon} <span style="flex:1">${t.title.split(':')[0].split('(')[0]}</span><span class="pill">${trackPct(t)}%</span></a>`).join('')}</nav>`;
+  renderTop(L);
+}
+// Top bar: menu toggle on the left, XP / streak and the profile button on the right
+function renderTop(L = level()) {
+  const menuOpen = $('#pmenu')?.classList.contains('open');
+  $('#top').innerHTML = `<button class="ghost icon" id="menuBtn" onclick="toggleMenu()" title="Show / hide the menu" aria-label="Toggle menu">☰</button>
+    <b class="top-brand">◉ Canonical Academy</b><span style="flex:1"></span>
+    <span class="chip-s" title="Total XP">⚡ ${st.xp}</span><span class="chip-s" title="Day streak">🔥 ${streak()}</span>
+    <div class="pwrap"><button class="avbtn" id="avBtn" onclick="document.getElementById('pmenu').classList.toggle('open')" title="${escH(st.profile.name)}" aria-label="Profile menu">${st.profile.avatar}</button>
+      <div class="pmenu ${menuOpen ? 'open' : ''}" id="pmenu"><div class="pm-head"><span class="av">${st.profile.avatar}</span><div><b>${escH(st.profile.name)}</b><div class="req">Lv ${L.i + 1} · ${L.name}</div></div></div>
+        <div class="bar"><i style="width:${L.pct}%"></i></div><div class="stats"><span>⚡ ${st.xp} XP</span><span>🔥 ${streak()} day${streak() === 1 ? '' : 's'}</span><span>🎯 ${match()}%</span></div>
+        <a href="#profile">👤 My profile</a><a href="#settings">⚙️ Settings</a><a href="#badges">🏅 Badges</a>
+        <button class="ghost" onclick="setPref('theme', document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark')">${document.documentElement.dataset.theme === 'dark' ? '☀️ Light mode' : '🌙 Dark mode'}</button></div></div>`;
+}
+// ☰ hides the menu on wide screens (remembered) and slides it in on phones
+function toggleMenu() {
+  if (innerWidth <= 900) return $('#side').classList.toggle('open');
+  st.prefs.menu = st.prefs.menu === 'closed' ? 'open' : 'closed'; save(); $('.app').classList.toggle('collapsed', st.prefs.menu === 'closed');
 }
 
 // ---------- views
@@ -366,9 +382,10 @@ function route() {
   $('#side').classList.remove('open'); renderSide(); window.scrollTo(0, r === 'lesson' ? scrollY : 0);
 }
 window.route = route; window.toast = toast; window.st = st; window.save = save;
-addEventListener('hashchange', () => { if (location.hash.startsWith('#lesson')) lessonTab = 'learn'; document.getElementById('side')?.classList.remove('open'); route(); scrollTo(0, 0); });
+addEventListener('hashchange', () => { if (location.hash.startsWith('#lesson')) lessonTab = 'learn'; document.getElementById('side')?.classList.remove('open'); document.getElementById('pmenu')?.classList.remove('open'); route(); scrollTo(0, 0); });
 // Mobile menu closes when you tap anywhere outside it
-addEventListener('pointerdown', e => { const side = document.getElementById('side'); if (side?.classList.contains('open') && !side.contains(e.target) && !e.target.closest('.mobtop button')) side.classList.remove('open'); });
+addEventListener('pointerdown', e => { const side = document.getElementById('side'); if (side?.classList.contains('open') && !side.contains(e.target) && !e.target.closest('#menuBtn')) side.classList.remove('open');
+  const pm = document.getElementById('pmenu'); if (pm?.classList.contains('open') && !e.target.closest('.pwrap')) pm.classList.remove('open'); });
 // Scrollbars stay hidden until you hover or scroll an area (see .scrolling in style.css)
 addEventListener('scroll', e => { const el = e.target === document ? document.documentElement : e.target; if (!el.classList) return; el.classList.add('scrolling'); clearTimeout(el._sbT); el._sbT = setTimeout(() => el.classList.remove('scrolling'), 900); }, true);
 addEventListener('mousemove', e => document.documentElement.classList.toggle('sb-edge', e.clientX > innerWidth - 18), { passive: true });

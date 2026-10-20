@@ -79,6 +79,7 @@ const Pages = (() => {
     const P = st.prefs, root = document.documentElement, dark = matchMedia('(prefers-color-scheme: dark)').matches;
     root.dataset.theme = st.theme === 'auto' ? (dark ? 'dark' : 'light') : st.theme;
     const [a, b] = ACCENTS[P.accent] || ACCENTS.orange; root.style.setProperty('--acc', a); root.style.setProperty('--acc2', b);
+    document.querySelector('.app')?.classList.toggle('collapsed', P.menu === 'closed');
     document.body && (document.body.style.zoom = { s: .92, m: 1, l: 1.1 }[P.size] || 1);
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { if (st.theme === 'auto') apply(); });

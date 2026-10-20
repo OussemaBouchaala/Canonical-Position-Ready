@@ -37,7 +37,6 @@ textarea{resize:vertical}
 .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2));border-radius:99px;transition:width .5s}
 .stats{display:flex;justify-content:space-between;font-size:13px;color:var(--mut)}
 .main{padding:28px 36px 80px;max-width:1150px;width:100%}
-.mobtop{display:none}
 h1{font-size:28px;margin:0 0 6px}
 h2{font-size:21px;margin:26px 0 10px}
 h3{font-size:17px;margin:20px 0 8px}
@@ -172,7 +171,6 @@ h3{font-size:17px;margin:20px 0 8px}
   .app{grid-template-columns:1fr}
   .side{display:none;position:fixed;z-index:60;width:260px}
   .side.open{display:block}
-  .mobtop{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--bg2);border-bottom:1px solid var(--line)}
   .main{padding:18px 16px 90px}
   .g2,.g3,.g4,.sim{grid-template-columns:1fr}
 }
@@ -295,3 +293,27 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 :root[data-theme="light"]{--sbc:rgba(94,101,119,.38)}
 *{scrollbar-width:thin;scrollbar-color:var(--sb) transparent;transition:--sb .35s}
 :not(html):hover,.scrolling,html.sb-edge{--sb:var(--sbc)}
+
+/* top bar with menu toggle and profile button; the menu can be hidden to give pages the full width */
+.col{min-width:0;display:flex;flex-direction:column}
+.top{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:8px;padding:10px 24px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top .icon{font-size:20px;padding:4px 10px;line-height:1}
+.top-brand{display:none}
+.chip-s{font-size:13px;color:var(--mut);background:var(--card);border:1px solid var(--line);border-radius:99px;padding:3px 10px;white-space:nowrap}
+.pwrap{position:relative}
+.avbtn{width:40px;height:40px;border-radius:50%;padding:0;font-size:21px;display:grid;place-items:center;background:var(--card);border:2px solid var(--acc)}
+.pmenu{display:none;position:absolute;right:0;top:calc(100% + 8px);width:260px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh);padding:12px;z-index:70;animation:pop .15s ease-out}
+.pmenu.open{display:block}
+.pmenu .pm-head{display:flex;gap:10px;align-items:center;margin-bottom:6px}.pmenu .av{font-size:30px}
+.pmenu .stats{margin-bottom:8px}
+.pmenu a,.pmenu button{display:block;width:100%;text-align:left;padding:8px 10px;border-radius:8px;color:var(--tx);text-decoration:none;border:0;font-size:14px}
+.pmenu a:hover,.pmenu button:hover{background:var(--card2)}
+@keyframes pop{from{opacity:0;transform:translateY(-4px)}}
+.app.collapsed{grid-template-columns:1fr}
+.app.collapsed .side{display:none}
+.app.collapsed .main{max-width:1500px;margin:0 auto}
+@media(max-width:900px){
+  .top{padding:8px 12px}.top-brand{display:inline}
+  .app.collapsed .side{display:none}.app .side.open{display:block}
+  .side{top:0;left:0;box-shadow:var(--sh)}
+}
