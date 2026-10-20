@@ -1,0 +1,32 @@
+# Canonical Academy
+
+Personal learning platform for the Canonical role **Python and Kubernetes Software Engineer – Data, Workflows, AI/ML & Analytics**.
+
+## Start
+Double-click **`start.bat`** (needs Python 3). It opens http://localhost:8768.
+
+Your data stays on your PC, in this folder:
+- `progress.json`: all progress (XP, lessons, quizzes, labs, missions, flashcards, badges)
+- `backups/progress-YYYY-MM-DD.json`: one backup per day, kept 21 days
+- `activity_log.csv`: XP history (open it in Excel)
+- `config.json`: AI tutor provider, keys and models (only the local server reads it; it is never served to the browser)
+
+The plan start date is set in Settings; the roadmap shows dates for each week and whether you are ahead or behind.
+Opening `index.html` directly still works, but then progress lives only in the browser and the AI tutor is off.
+
+Progress from this browser and `progress.json` are merged, so nothing you completed is lost. **Reset progress** saves a copy in `backups/` first.
+
+## What's inside
+- **Roadmap**: 6 weeks, 9 tracks, 32 lessons, a boss battle per track
+- **Lessons**: concept + analogy + diagram, videos & official docs, quiz, YAML puzzles, real-machine labs
+- **Videos play inside the lesson** (Watch & read tab): the app searches YouTube for each topic and only shows videos that allow embedding. Pick another from the thumbnails, or paste your own link. Results are cached in `videos_cache.json`.
+- **K8s Simulator**: 3-node fake MicroK8s cluster; real kubectl syntax; live view of pods dying/healing; missions
+- **Flashcards**: spaced repetition (Leitner)
+- **Job match**: requirement-by-requirement progress
+- **XP, levels, streaks, badges**
+- **AI tutor "Kube"** (🤖 bottom right): click ⚙️ to pick a provider, paste its key, choose a model (**Load models** lists what your key can use) and **Test** it.
+  - Free: Google Gemini (key from https://aistudio.google.com/apikey), Groq (https://console.groq.com/keys), OpenRouter `:free` models (https://openrouter.ai/keys), Ollama on your PC (no key).
+  - Paid: Anthropic Claude (https://console.anthropic.com/settings/keys).
+  - Keys are saved in `config.json` and sent only to the provider you chose.
+
+The tutor will not write your Canonical application answers: their form disqualifies AI-generated content.

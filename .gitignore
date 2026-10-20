@@ -1,0 +1,6 @@
+config.json
+
+backups/
+activity_log.csv
+videos_cache.json
+_originals-*/
