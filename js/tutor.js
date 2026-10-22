@@ -2,7 +2,10 @@
 // API keys are saved in config.json by server.py and never reach the page.
 const Tutor = (() => {
   let settings = null; // { provider, providers: { name: { label, hasKey, keyHint, model, ... } } }
-  let history = [];
+  // The chat is kept in this browser (not in progress.json) so it's still there after a reload
+  const CHK = 'ca_chat_v1';
+  let history = []; try { history = JSON.parse(localStorage.getItem(CHK) || '[]'); } catch {}
+  const keep = () => { history = history.slice(-40); try { localStorage.setItem(CHK, JSON.stringify(history)); } catch {} };
   let context = () => '';
 
   const SYSTEM = () => `You are "Kube", a friendly, rigorous tutor inside "Canonical Academy", a learning platform preparing Oussema Bouchaala (Tunisian engineering student at INSAT, strong in Python, computer vision/YOLO, FastAPI, Docker basics, DVC, ETL; NEW to Kubernetes) for Canonical's role "Python and Kubernetes Software Engineer – Data, Workflows, AI/ML & Analytics" (Charmed Kubeflow, MLflow, Juju charms, MicroK8s).
@@ -16,40 +19,78 @@ Hard rule: Canonical's application forbids AI-generated content. NEVER write his
 Current context in the platform: ${context()}`;
 
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  function md(s) {
-    let h = esc(s);
-    h = h.replace(/```(\w*)\n([\s\S]*?)```/g, (_, l, c) => `<pre>${c}</pre>`);
-    h = h.replace(/`([^`\n]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
-    return h;
+  // Small markdown renderer for Kube's replies: headings, lists, code blocks, quotes, tables, links, bold/italic.
+  // Escapes first, so model output can never inject HTML. Works on partial text while it streams.
+  const inline = t => t
+    .replace(/`([^`\n]+)`/g, (_, c) => `\u0000${c}\u0001`)
+    .replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>').replace(/__([^_\n]+)__/g, '<b>$1</b>')
+    .replace(/(^|[^*\w])\*([^*\n]+)\*(?!\*)/g, '$1<i>$2</i>').replace(/(^|\W)_([^_\n]+)_(?!\w)/g, '$1<i>$2</i>')
+    .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/\u0000([^\u0001]*)\u0001/g, '<code>$1</code>');
+  function md(src) {
+    const L = esc(src).replace(/\r/g, '').split('\n'), out = [];
+    let list = null, para = [];
+    const flushP = () => { if (para.length) { out.push(`<p>${inline(para.join(' '))}</p>`); para = []; } };
+    const closeL = () => { if (list) { out.push(`</${list}>`); list = null; } };
+    const flush = () => { flushP(); closeL(); };
+    for (let i = 0; i < L.length; i++) {
+      const ln = L[i], t = ln.trim(); let m;
+      if ((m = t.match(/^```\s*([\w+-]*)/))) {
+        flush(); const code = []; i++;
+        while (i < L.length && !L[i].trim().startsWith('```')) code.push(L[i++]);
+        out.push(`<div class="mdcode">${m[1] ? `<span>${m[1]}</span>` : ''}<button class="ghost" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">📋</button><pre>${code.join('\n')}</pre></div>`); continue;
+      }
+      if (!t) { flush(); continue; }
+      if ((m = t.match(/^(#{1,6})\s+(.*)/))) { flush(); const n = Math.min(6, m[1].length + 2); out.push(`<h${n}>${inline(m[2])}</h${n}>`); continue; }
+      if (/^([-*_])\1{2,}$/.test(t)) { flush(); out.push('<hr>'); continue; }
+      if ((m = t.match(/^&gt;\s?(.*)/))) { flush(); out.push(`<blockquote>${inline(m[1])}</blockquote>`); continue; }
+      if (t.startsWith('|') && L[i + 1] && /^\|?\s*:?-{2,}/.test(L[i + 1].trim())) {
+        flush(); const row = r => r.trim().replace(/^\||\|$/g, '').split('|').map(c => inline(c.trim()));
+        let h = `<table><tr>${row(t).map(c => `<th>${c}</th>`).join('')}</tr>`; i += 2;
+        while (i < L.length && L[i].trim().startsWith('|')) h += `<tr>${row(L[i++]).map(c => `<td>${c}</td>`).join('')}</tr>`;
+        i--; out.push(h + '</table>'); continue;
+      }
+      if ((m = ln.match(/^\s*(?:[-*+]|(\d+)[.)])\s+(.*)/))) {
+        flushP(); const kind = m[1] ? 'ol' : 'ul';
+        if (list !== kind) { closeL(); out.push(kind === 'ol' && m[1] !== '1' ? `<ol start="${m[1]}">` : `<${kind}>`); list = kind; }
+        out.push(`<li${/^\s{2,}/.test(ln) ? ' class="sub"' : ''}>${inline(m[2])}</li>`); continue;
+      }
+      if (list && /^\s{2,}/.test(ln)) { out[out.length - 1] = out[out.length - 1].replace(/<\/li>$/, ' ' + inline(t) + '</li>'); continue; }
+      closeL(); para.push(t);
+    }
+    flush(); return out.join('');
   }
   const post = (url, body) => fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   const cur = () => settings && settings.providers[settings.provider];
   const ready = () => { const p = cur(); return !!p && (p.hasKey || p.no_key); };
   const summary = () => { const p = cur(); return p ? `${p.label} · ${p.model}${ready() ? '' : ' (no key yet)'}` : 'not set'; };
 
+  async function stream(msgs, onDelta, system = SYSTEM()) {
+    const res = await post('/api/chat', { system, messages: msgs });
+    if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error === 'NO_KEY' ? 'NO_KEY' : (j.error || `HTTP ${res.status}`)); }
+    const rd = res.body.getReader(), dec = new TextDecoder(); let buf = '', full = '';
+    for (;;) {
+      const { done, value } = await rd.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const l of lines) {
+        if (!l.startsWith('data:')) continue;
+        let j; try { j = JSON.parse(l.slice(5)); } catch { continue; }
+        if (j.error) throw Object.assign(new Error(j.error), { partial: full });
+        if (j.t) { full += j.t; onDelta(full); }
+      }
+    }
+    return full;
+  }
   async function ask(text, onDelta) {
     if (!ready()) throw new Error('NO_KEY');
     history.push({ role: 'user', content: text });
     // Keep the last ~20 turns, starting on a user turn (APIs reject a conversation that opens with the assistant).
     let msgs = history.slice(-20); while (msgs.length && msgs[0].role !== 'user') msgs = msgs.slice(1);
     let full = '';
-    try {
-      const res = await post('/api/chat', { system: SYSTEM(), messages: msgs });
-      if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error === 'NO_KEY' ? 'NO_KEY' : (j.error || `HTTP ${res.status}`)); }
-      const rd = res.body.getReader(), dec = new TextDecoder(); let buf = '';
-      for (;;) {
-        const { done, value } = await rd.read(); if (done) break;
-        buf += dec.decode(value, { stream: true });
-        const lines = buf.split('\n'); buf = lines.pop();
-        for (const l of lines) {
-          if (!l.startsWith('data:')) continue;
-          let j; try { j = JSON.parse(l.slice(5)); } catch { continue; }
-          if (j.error) throw new Error(j.error);
-          if (j.t) { full += j.t; onDelta(full); }
-        }
-      }
-    } catch (e) { if (!full) history.pop(); else history.push({ role: 'assistant', content: full }); throw e; }
-    history.push({ role: 'assistant', content: full });
+    try { full = await stream(msgs, f => { full = f; onDelta(f); }); }
+    catch (e) { full = full || e.partial || ''; if (!full) history.pop(); else history.push({ role: 'assistant', content: full }); keep(); throw e; }
+    history.push({ role: 'assistant', content: full }); keep();
     return full;
   }
 
@@ -83,13 +124,14 @@ Current context in the platform: ${context()}`;
     document.body.append(fab, box, dlg);
     const q = s => dlg.querySelector(s);
     const msgs = box.querySelector('#tMsgs'), input = box.querySelector('#tIn');
-    const add = (cls, html) => { const d = document.createElement('div'); d.className = 'msg ' + cls; d.innerHTML = html; msgs.append(d); msgs.scrollTop = 1e9; return d; };
+    const add = (cls, html) => { const d = document.createElement('div'); d.className = 'msg ' + cls + (cls === 'a' ? ' md' : ''); d.innerHTML = html; msgs.append(d); msgs.scrollTop = 1e9; return d; };
     const hello = () => {
       if (!srv) return add('a', 'The tutor needs the local server. Start the app with <b>start.bat</b>, then open <code>http://localhost:8768</code>.');
       if (!settings) return add('a', '<span class="t-dim">Loading AI settings…</span>');
       if (!ready()) return add('a', `Hi 👋 To chat, pick an AI provider and add its key in <a href="#" data-set>⚙️ AI settings</a>. Free options: Google Gemini, Groq, OpenRouter (":free" models) or Ollama on your PC.`);
       add('a', `Hi Oussema 👋 I'm Kube, your tutor (<code>${esc(cur().label)}</code> · <code>${esc(cur().model)}</code>). Ask me anything about Kubernetes, MLOps or charms. I know which lesson you're on.`);
     };
+    const replay = () => { history.forEach(h => add(h.role === 'user' ? 'u' : 'a', h.role === 'user' ? esc(h.content) : md(h.content))); };
     const refreshHeader = () => { box.querySelector('#tProv').textContent = cur() ? cur().model : 'AI tutor'; const el = document.getElementById('setProv'); if (el) el.textContent = summary(); };
     msgs.addEventListener('click', e => { if (e.target.matches('[data-set]')) { e.preventDefault(); openSettings(); } });
 
@@ -138,7 +180,10 @@ Current context in the platform: ${context()}`;
 
     fab.onclick = () => box.classList.toggle('open');
     box.querySelector('#tX').onclick = () => box.classList.remove('open');
-    box.querySelector('#tClr').onclick = () => { history = []; msgs.innerHTML = ''; hello(); };
+    // Clicking anywhere outside the chat (or pressing Escape) closes it; buttons that open Kube are left alone
+    document.addEventListener('pointerdown', e => { if (box.classList.contains('open') && !box.contains(e.target) && !fab.contains(e.target) && !dlg.contains(e.target) && !e.target.closest('[onclick*="TUT."]')) box.classList.remove('open'); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && dlg.hidden && box.classList.contains('open')) box.classList.remove('open'); });
+    box.querySelector('#tClr').onclick = () => { history = []; keep(); msgs.innerHTML = ''; hello(); };
     box.querySelector('#tSet').onclick = () => srv ? openSettings() : null;
     box.querySelectorAll('.quick button').forEach(b => b.onclick = () => { input.value = b.dataset.q; if (!b.dataset.q.endsWith('\n')) box.querySelector('#tForm').requestSubmit(); else input.focus(); });
     input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); box.querySelector('#tForm').requestSubmit(); } });
@@ -149,9 +194,12 @@ Current context in the platform: ${context()}`;
       catch (er) { out.innerHTML = er.message === 'NO_KEY' ? 'Add an API key first in <a href="#" data-set>⚙️ AI settings</a>.' : `<span class="t-err">${esc(er.message)}</span>`; }
     };
 
-    if (srv) fetch('/api/llm/settings').then(r => r.json()).then(s => { settings = s; msgs.innerHTML = ''; hello(); refreshHeader(); }).catch(() => { msgs.innerHTML = ''; add('a', '<span class="t-err">Could not load AI settings. Is start.bat running?</span>'); });
+    if (srv) fetch('/api/llm/settings').then(r => r.json()).then(s => { settings = s; msgs.innerHTML = ''; hello(); replay(); refreshHeader(); }).catch(() => { msgs.innerHTML = ''; add('a', '<span class="t-err">Could not load AI settings. Is start.bat running?</span>'); });
     hello();
-    return { open: q => { box.classList.add('open'); if (q) { input.value = q; input.focus(); } }, settings: () => { box.classList.add('open'); openSettings(); }, summary };
+    return { open: q => { box.classList.add('open'); if (q) { input.value = q; input.focus(); } }, settings: () => { box.classList.add('open'); openSettings(); }, summary,
+      // One question answered outside the chat (e.g. grading inside a lesson); doesn't touch the chat history
+      once: async (q, onDelta) => { if (!srv || !ready()) throw new Error('NO_KEY'); return stream([{ role: 'user', content: q }], onDelta); }, md,
+      send: q => { box.classList.add('open'); input.value = q; box.querySelector('#tForm').requestSubmit(); } };
   }
   return { mount };
 })();

@@ -19,11 +19,14 @@ Progress from this browser and `progress.json` are merged, so nothing you comple
 ## What's inside
 - **Roadmap**: 6 weeks, 9 tracks, 32 lessons, a boss battle per track
 - **Lessons**: concept + analogy + diagram, videos & official docs, quiz, YAML puzzles, real-machine labs
+- **Step-by-step Learn tab**: each lesson is split into short steps (big picture, concepts with diagrams, real examples to copy and run, "predict the output", quick checks, common mistakes, key takeaways, explain it back). Continue unlocks after you answer; ← → keys move between steps; 🤖 Ask Kube on any step. Prefer one long page? Switch in Settings.
 - **Videos play inside the lesson** (Watch & read tab): the app searches YouTube for each topic and only shows videos that allow embedding. Pick another from the thumbnails, or paste your own link. Results are cached in `videos_cache.json`.
 - **K8s Simulator**: 3-node fake MicroK8s cluster; real kubectl syntax; live view of pods dying/healing; missions
 - **Flashcards**: spaced repetition (Leitner)
 - **Job match**: requirement-by-requirement progress
-- **XP, levels, streaks, badges**
+- **XP, levels, streaks, badges, daily goal**
+- **Profile** (click your name): level, daily goal ring, accuracy, activity heatmap, daily XP chart, per-track progress, recent lessons, your saved notes
+- **Settings**: name, avatar, daily goal, theme (dark/light/system), accent colour, text size, confetti, lesson mode, plan start date, AI tutor, export/import, reset
 - **AI tutor "Kube"** (🤖 bottom right): click ⚙️ to pick a provider, paste its key, choose a model (**Load models** lists what your key can use) and **Test** it.
   - Free: Google Gemini (key from https://aistudio.google.com/apikey), Groq (https://console.groq.com/keys), OpenRouter `:free` models (https://openrouter.ai/keys), Ollama on your PC (no key).
   - Paid: Anthropic Claude (https://console.anthropic.com/settings/keys).
