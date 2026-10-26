@@ -70,7 +70,7 @@ const Pages = (() => {
       <div class="fld">Time per day${seg('minutes', [['30', '30 min'], ['45', '45 min'], ['60', '1 h'], ['90', '1 h 30'], ['120', '2 h']], String(P.minutes))}</div>
       <div class="fld">Study days per week${seg('studyDays', [['5', '5'], ['6', '6'], ['7', '7']], String(P.studyDays))}</div>
       <div class="fld">Python Engineer track${seg('pyeng', [['1', 'In my plan'], ['0', 'Skip it']], P.pyeng === false ? '0' : '1')}</div>
-      <p class="req" style="margin:-4px 0 10px">${(() => { const p = plan(); return `Your plan: <b>${p.weeks} weeks</b>, ending ${fmtDate(p.end, 1)} (~${Math.round(p.totalMin / 60)} h in total).`; })()}</p>
+      <p class="req" style="margin:-4px 0 10px">${(() => { const p = plan(); return `Your plan: <b>${p.weeks} weeks</b>, ending ${fmtDate(p.end, 1)} (~${Math.round(p.totalMin / 60)} h of lessons and labs; ${REVIEW_MIN} min of each day goes to flashcards).`; })()}</p>
       <label class="fld">Plan start date<input type="date" value="${st.start}" onchange="st.start=this.value;save();toast('Plan dates updated')"></label>
       <div class="fld">Lesson progress<div><button onclick="if(confirm('Restart all lessons from step 1? Your XP and completions stay.')){st.step={};save();toast('Lesson steps reset')}">↺ Restart lesson steps</button></div></div></div>
     <div class="card"><h3>🤖 AI tutor</h3><p class="sub">${SERVER ? `Provider: <b id="setProv">${TUT.summary()}</b>. Free options: Gemini, Groq, OpenRouter, Ollama. Keys stay in <code>config.json</code> on your PC.` : 'The tutor needs the local server: start the app with <b>start.bat</b>.'}</p>${SERVER ? '<button onclick="TUT.settings()">⚙️ AI settings</button>' : ''}</div>

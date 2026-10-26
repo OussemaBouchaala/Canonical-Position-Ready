@@ -45,11 +45,18 @@ const save = () => { try { localStorage.setItem(LSK, JSON.stringify(st)); } catc
   if (SERVER && serverRev !== null) { clearTimeout(saveT); saveT = setTimeout(push, 400); } };
 if (!st.start) st.start = new Date().toISOString().slice(0, 10);
 // ---------- study plan: every lesson and boss laid out on study days from your time budget (Settings → Learning)
-// Estimated time per lesson = reading the steps twice as long as the "min" figure, + 15 min for quiz & video, + 10 min per lab step.
-const lessonMins = l => Math.round(l.min * 2 + 15 + (l.lab ? l.lab.steps.length * 10 : 0)), BOSS_MIN = 20;
+// Estimated time per lesson = reading the steps twice as long as the "min" figure, + 15 min for quiz & video, + lab time.
+// Lab steps take 10 min unless LAB_MIN gives a realistic figure (installs, tutorials, PRs and mock interviews take hours).
+const LAB_MIN = { l1: [30, 20], l3: [15], p1: [30, 10, 20], p3: [20, 15], p4: [25, 5], c1: [30], c2: [25, 15, 10, 20], c3: [30], k1: [30],
+  k5: [15, 15, 15], a2: [40, 15], a3: [25, 15], a4: [20], a5: [30, 25], m1: [20], m2: [20, 25], m3: [180, 90, 30, 45], m4: [60],
+  j1: [40, 40], j2: [300, 120, 60, 30], j3: [45], o1: [60, 150, 240], x1: [30, 45, 45], x2: [90, 20],
+  e1: [40, 30, 30], e2: [30, 40, 15], e3: [45, 30], e4: [30, 10, 60], e5: [20, 45, 10, 60], e6: [120, 60, 30] };
+const lessonMins = l => Math.round(l.min * 2 + 15 + (l.lab ? l.lab.steps.reduce((s, _, i) => s + ((LAB_MIN[l.id] || [])[i] || 10), 0) : 0)), BOSS_MIN = 20;
+const REVIEW_MIN = 10; // kept out of each study day for the daily flashcard review
+const newMins = () => Math.max(20, (+st.prefs.minutes || 60) - REVIEW_MIN);
 const inPlan = t => t.id !== 'pyeng' || st.prefs.pyeng !== false;
 function plan() {
-  const per = +st.prefs.minutes || 60, dpw = +st.prefs.studyDays || 6, start = new Date(st.start + 'T00:00');
+  const per = newMins(), dpw = +st.prefs.studyDays || 6, start = new Date(st.start + 'T00:00');
   const studyDay = n => { const d = new Date(start); d.setDate(d.getDate() + 7 * Math.floor(n / dpw) + n % dpw); return d; };
   let used = 0;
   const items = TRACKS.filter(inPlan).flatMap(t => [...t.lessons.map(l => ({ id: l.id, l: { ...l, track: t }, t, mins: lessonMins(l), done: !!st.done[l.id] })),
@@ -151,7 +158,7 @@ V.road = () => {
   P.items.forEach(it => (weeks[it.week] = weeks[it.week] || []).push(it));
   let curSet = false; const p = pace();
   return `<h1>🗺️ Roadmap: zero → Canonical-ready</h1>
-  <p class="sub">${P.weeks} weeks at ${P.per} min/day, ${P.dpw} days/week (about ${Math.round(P.totalMin / 60)} h in total) · ${fmtDate(P.studyDay(0), 1)} → ${fmtDate(P.end, 1)} · <a href="#settings">change your time budget</a></p>
+  <p class="sub">${P.weeks} weeks at ${st.prefs.minutes} min/day (${P.per} new + ${REVIEW_MIN} flashcard review), ${P.dpw} days/week (about ${Math.round(P.totalMin / 60)} h in total) · ${fmtDate(P.studyDay(0), 1)} → ${fmtDate(P.end, 1)} · <a href="#settings">change your time budget</a></p>
   <div class="card" style="margin-bottom:16px;border-color:${p.diff >= 0 ? 'var(--ok)' : 'var(--warn)'}"><b>${p.diff >= 0 ? '✅ On track' : '⏳ Behind'}</b>: ${p.done}/${p.total} items done, plan expects ${p.expected} by today (${p.diff >= 0 ? '+' + p.diff + ' ahead' : -p.diff + ' behind'}).</div>
   <div class="road">${weeks.map((its, w) => { const pct = Math.round(100 * its.filter(i => i.done).length / its.length);
     const cls = pct === 100 ? 'done' : !curSet ? (curSet = true, 'cur') : '';
