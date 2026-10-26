@@ -5,7 +5,7 @@ const LEVELS = ['Intern', 'Apprentice', 'Pod Wrangler', 'Deployer', 'Cluster Ope
 
 const defaults = () => ({ xp: 0, done: {}, quiz: {}, labs: {}, labXp: {}, yaml: {}, missions: {}, bosses: {}, flash: {}, flashReviews: 0, flags: {}, badges: {}, vids: {}, days: [], tutorQs: 0, theme: 'dark', cur: null, epoch: 0,
   profile: { name: 'Oussema', role: 'Python & Kubernetes Software Engineer @ Canonical (target)', avatar: '🧑‍💻' },
-  prefs: { goal: 60, accent: 'orange', size: 'm', motion: true, lessonMode: 'steps' },
+  prefs: { goal: 60, accent: 'orange', size: 'm', motion: true, lessonMode: 'steps', minutes: 60, studyDays: 6, pyeng: true },
   daily: {}, qstats: { answered: 0, correct: 0 }, step: {}, read: {}, checks: {}, notes: {}, grades: {}, qans: {}, picks: {}, pred: {}, yamlIn: {}, tab: {}, simYaml: '' });
 let st = defaults();
 try { Object.assign(st, JSON.parse(localStorage.getItem(LSK) || '{}')); } catch {}
@@ -44,8 +44,23 @@ function push() {
 const save = () => { try { localStorage.setItem(LSK, JSON.stringify(st)); } catch {}
   if (SERVER && serverRev !== null) { clearTimeout(saveT); saveT = setTimeout(push, 400); } };
 if (!st.start) st.start = new Date().toISOString().slice(0, 10);
-const weekDates = i => { const d = new Date(st.start + 'T00:00'); d.setDate(d.getDate() + 7 * i); const e = new Date(d); e.setDate(e.getDate() + 6); const f = x => x.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); return f(d) + ' – ' + f(e); };
-const pace = () => { const total = allLessons().length + TRACKS.length; const days = Math.max(0, (Date.now() - new Date(st.start + 'T00:00')) / 864e5); const expected = Math.min(total, Math.round(total * days / 42)); const done = Object.keys(st.done).length + Object.keys(st.bosses).length; return { done, expected, total, diff: done - expected }; };
+// ---------- study plan: every lesson and boss laid out on study days from your time budget (Settings → Learning)
+// Estimated time per lesson = reading the steps twice as long as the "min" figure, + 15 min for quiz & video, + 10 min per lab step.
+const lessonMins = l => Math.round(l.min * 2 + 15 + (l.lab ? l.lab.steps.length * 10 : 0)), BOSS_MIN = 20;
+const inPlan = t => t.id !== 'pyeng' || st.prefs.pyeng !== false;
+function plan() {
+  const per = +st.prefs.minutes || 60, dpw = +st.prefs.studyDays || 6, start = new Date(st.start + 'T00:00');
+  const studyDay = n => { const d = new Date(start); d.setDate(d.getDate() + 7 * Math.floor(n / dpw) + n % dpw); return d; };
+  let used = 0;
+  const items = TRACKS.filter(inPlan).flatMap(t => [...t.lessons.map(l => ({ id: l.id, l: { ...l, track: t }, t, mins: lessonMins(l), done: !!st.done[l.id] })),
+    { id: 'boss_' + t.id, boss: true, t, mins: BOSS_MIN, done: !!st.bosses[t.id] }])
+    .map(it => { const s = used; used += it.mins; const endDay = Math.ceil(used / per) - 1; return { ...it, week: Math.floor(Math.floor(s / per) / dpw), end: studyDay(endDay) }; });
+  const days = Math.ceil(used / per);
+  return { items, per, dpw, totalMin: used, days, weeks: Math.ceil(days / dpw), end: studyDay(days - 1), studyDay };
+}
+const fmtDate = (d, y) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(y ? { year: 'numeric' } : {}) });
+const weekDates = (P, w) => { const d = P.studyDay(w * P.dpw), e = new Date(d); e.setDate(e.getDate() + 6); return fmtDate(d) + ' – ' + fmtDate(e); };
+const pace = () => { const P = plan(), today = new Date(new Date().toDateString()); const expected = P.items.filter(i => i.end < today).length, done = P.items.filter(i => i.done).length; return { done, expected, total: P.items.length, diff: done - expected }; };
 
 // ---------- derived
 const allLessons = () => TRACKS.flatMap(t => t.lessons.map(l => ({ ...l, track: t })));
@@ -54,8 +69,11 @@ const trackDone = id => { const t = TRACKS.find(x => x.id === id); return t.less
 const level = () => { const i = Math.min(LEVELS.length - 1, Math.floor(Math.sqrt(st.xp / 120))); const lo = 120 * i * i, hi = 120 * (i + 1) * (i + 1); return { i, name: LEVELS[i], pct: Math.min(100, 100 * (st.xp - lo) / (hi - lo)), next: hi }; };
 const streak = () => { const set = new Set(st.days); let n = 0; const d = new Date(); for (;;) { const k = d.toISOString().slice(0, 10); if (set.has(k)) { n++; d.setDate(d.getDate() - 1); } else break; } return n; };
 const reqPct = r => Math.round(r.tracks.reduce((s, id) => s + trackPct(TRACKS.find(t => t.id === id)), 0) / r.tracks.length);
-const match = () => { const base = { py: 55, linux: 30, mlops: 35, quality: 25, app: 20, k8s: 0, canon: 0, dist: 5, oss: 0 }; // starting point from your CV
-  const v = JOB.reqs.map(r => Math.max(base[r.id] || 0, base[r.id] + (100 - base[r.id]) * reqPct(r) / 100)); return Math.round(v.reduce((a, b) => a + b) / v.length); };
+// Starting points come from your CV (Octomiro CV/ML pipelines, Bit & Books full-stack + CI/CD, Yonnov'IA data pipelines); they grow with each finished track.
+JOB.base = { py: 60, linux: 30, mlops: 40, quality: 25, app: 20, k8s: 5, canon: 0, dist: 5, oss: 0 };
+const reqScore = (job, r) => Math.round(Math.max(job.base[r.id] || 0, (job.base[r.id] || 0) + (100 - (job.base[r.id] || 0)) * reqPct(r) / 100));
+const matchFor = job => { const v = job.reqs.map(r => reqScore(job, r)); return Math.round(v.reduce((a, b) => a + b) / v.length); };
+const match = () => matchFor(JOB);
 const summary = () => ({ doneCount: Object.keys(st.done).length, trackDone, missions: Object.keys(st.missions).length, flags: st.flags, bosses: Object.keys(st.bosses).length, flashReviews: st.flashReviews, streak: streak(), tutorQs: st.tutorQs, match: match() });
 
 // ---------- gamification
@@ -108,7 +126,7 @@ function toggleMenu() {
 // ---------- views
 const V = {};
 V.home = () => {
-  const next = allLessons().find(l => !st.done[l.id]);
+  const next = plan().items.find(i => !i.boss && !i.done)?.l || allLessons().find(l => !st.done[l.id]);
   const s = summary();
   const td = st.daily[new Date().toISOString().slice(0, 10)] || 0, gp = Math.min(100, Math.round(100 * td / st.prefs.goal));
   return `<h1>Welcome back, ${escH(st.profile.name)} ${st.profile.avatar}</h1><p class="sub">Target: <a href="${JOB.url}" target="_blank">${JOB.title}</a> @ Canonical</p>
@@ -129,17 +147,18 @@ const trackCard = t => `<div class="card track" onclick="location.hash='#track/$
   <h3 style="margin:8px 0 4px">${t.title}</h3><div class="bar"><i style="width:${trackPct(t)}%"></i></div><div class="req">🎯 ${t.req}</div></div>`;
 
 V.road = () => {
-  const weeks = [['Week 1', ['linux', 'python'], 'Ubuntu fluency + production Python habits'], ['Week 2', ['containers', 'k8s1'], 'Containers, then Kubernetes core (most important week)'],
-    ['Week 3', ['k8s1', 'k8s2'], 'Finish K8s core; Helm, probes, observability on your CV API'], ['Week 4', ['mlops'], 'Kubeflow Pipelines + MLflow: build the flagship project'],
-    ['Week 5', ['canonical', 'oss'], 'Juju, write a charm, first upstream PRs'], ['Week 6', ['apply'], 'Evidence pack, mock interviews, write answers yourself, apply']];
-  let curSet = false;
-  return `<h1>🗺️ Roadmap: zero → Canonical-ready</h1><p class="sub">6 weeks · ~2h/day · started ${st.start} (change in Settings). Each stop unlocks the next skill; boss battles prove mastery.</p>
-  ${(() => { const p = pace(); return `<div class="card" style="margin-bottom:16px;border-color:${p.diff >= 0 ? 'var(--ok)' : 'var(--warn)'}"><b>${p.diff >= 0 ? '✅ On track' : '⏳ Behind'}</b>: ${p.done}/${p.total} items done, plan expects ${p.expected} by today (${p.diff >= 0 ? '+' + p.diff + ' ahead' : -p.diff + ' behind'}).</div>`; })()}
-  <div class="road">${weeks.map(([w, ids, d]) => { const pct = Math.round(ids.reduce((s, id) => s + trackPct(TRACKS.find(t => t.id === id)), 0) / ids.length);
+  const P = plan(), weeks = [];
+  P.items.forEach(it => (weeks[it.week] = weeks[it.week] || []).push(it));
+  let curSet = false; const p = pace();
+  return `<h1>🗺️ Roadmap: zero → Canonical-ready</h1>
+  <p class="sub">${P.weeks} weeks at ${P.per} min/day, ${P.dpw} days/week (about ${Math.round(P.totalMin / 60)} h in total) · ${fmtDate(P.studyDay(0), 1)} → ${fmtDate(P.end, 1)} · <a href="#settings">change your time budget</a></p>
+  <div class="card" style="margin-bottom:16px;border-color:${p.diff >= 0 ? 'var(--ok)' : 'var(--warn)'}"><b>${p.diff >= 0 ? '✅ On track' : '⏳ Behind'}</b>: ${p.done}/${p.total} items done, plan expects ${p.expected} by today (${p.diff >= 0 ? '+' + p.diff + ' ahead' : -p.diff + ' behind'}).</div>
+  <div class="road">${weeks.map((its, w) => { const pct = Math.round(100 * its.filter(i => i.done).length / its.length);
     const cls = pct === 100 ? 'done' : !curSet ? (curSet = true, 'cur') : '';
-    return `<div class="stop ${cls}"><div class="dot">${pct === 100 ? '✓' : w.split(' ')[1]}</div><div class="card"><div class="top" style="display:flex;justify-content:space-between"><b>${w} <span class="pill">${weekDates(+w.split(' ')[1] - 1)}</span> ${d}</b><span class="pill">${pct}%</span></div>
-      <div class="chips">${ids.map(id => { const t = TRACKS.find(x => x.id === id); return `<button onclick="location.hash='#track/${id}'">${t.icon} ${t.title}</button>`; }).join('')}</div></div></div>`; }).join('')}
-  <div class="stop"><div class="dot">🏁</div><div class="card"><b>Apply</b>: <a href="${JOB.url}" target="_blank">canonical.com/careers/5703396</a> once match ≥ 85% and your flagship repo + 1 charm + PRs are public.</div></div></div>`;
+    const tracks = [...new Set(its.map(i => i.t))];
+    return `<div class="stop ${cls}"><div class="dot">${pct === 100 ? '✓' : w + 1}</div><div class="card"><div class="top" style="display:flex;justify-content:space-between;gap:8px"><b>Week ${w + 1} <span class="pill">${weekDates(P, w)}</span> ${tracks.map(t => t.icon + ' ' + t.title.split(':')[0].split('(')[0].trim()).join(' · ')}</b><span class="pill">${pct}%</span></div>
+      <div class="wk-items">${its.map(i => i.boss ? `<a href="#boss/${i.t.id}" class="${i.done ? 'ok' : ''}">${i.done ? '✅' : '👹'} Boss: ${i.t.title.split(':')[0]}</a>` : `<a href="#lesson/${i.id}" class="${i.done ? 'ok' : ''}">${i.done ? '✅' : '○'} ${i.l.title} <span class="req">~${i.mins} min</span></a>`).join('')}</div></div></div>`; }).join('')}
+  <div class="stop"><div class="dot">🏁</div><div class="card"><b>Apply</b> once job match ≥ 85% and your flagship repo, one charm and your PRs are public: <a href="${JOB.url}" target="_blank">${JOB.title}</a>${inPlan({ id: 'pyeng' }) ? ` and/or <a href="${JOB2.url}" target="_blank">${JOB2.title}</a>` : ''}.</div></div></div>`;
 };
 
 V.track = id => {
@@ -368,11 +387,12 @@ window.fcRate = r => { const i = fcCur.i, s = st.flash[i] || { box: 0 }; s.box =
 
 // ---------- badges / match / settings
 V.badges = () => `<h1>🏅 Badges</h1><div class="grid g4">${BADGES.map(b => `<div class="card badge ${st.badges[b.id] ? 'got' : ''}"><div class="e">${b.e}</div><b>${b.t}</b><div class="req">${b.d}</div></div>`).join('')}</div>`;
-V.match = () => `<h1>🎯 Job match</h1><p class="sub">Your estimated fit for <a href="${JOB.url}" target="_blank">${JOB.title}</a>, starting from your CV and growing with each finished track.</p>
-  <div class="card"><div class="kpi">${match()}%</div><div class="bar"><i style="width:${match()}%"></i></div></div>
-  <div class="card" style="margin-top:16px"><table class="matrix"><tr><th>Requirement</th><th>Progress</th><th>Train it</th></tr>
-  ${JOB.reqs.map(r => `<tr><td>${r.label}</td><td style="width:160px"><div class="bar"><i style="width:${reqPct(r)}%"></i></div>${reqPct(r)}%</td><td>${r.tracks.map(id => `<a href="#track/${id}">${TRACKS.find(t => t.id === id).icon}</a>`).join(' ')}</td></tr>`).join('')}</table></div>
-  <div class="callout job">Portfolio checklist (what recruiters actually see): ☐ CV API on Kubernetes with Helm + probes + /metrics · ☐ Kubeflow pipeline + MLflow repo · ☐ your own charm · ☐ 2–3 merged upstream PRs · ☐ CV updated with numbers.</div>`;
+const matchTable = job => `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h3 style="margin:0"><a href="${job.url}" target="_blank">${job.title}</a></h3><div class="kpi">${matchFor(job)}%</div></div><div class="bar"><i style="width:${matchFor(job)}%"></i></div>
+  <table class="matrix" style="margin-top:10px"><tr><th>Requirement</th><th>Your level</th><th>Train it</th></tr>
+  ${job.reqs.map(r => `<tr><td>${r.label}</td><td style="width:150px"><div class="bar"><i style="width:${reqScore(job, r)}%"></i></div>${reqScore(job, r)}%</td><td>${r.tracks.map(id => `<a href="#track/${id}" title="${TRACKS.find(t => t.id === id).title}">${TRACKS.find(t => t.id === id).icon}</a>`).join(' ')}</td></tr>`).join('')}</table></div>`;
+V.match = () => `<h1>🎯 Job match</h1><p class="sub">Your estimated fit for Canonical's two Python roles, starting from your CV and growing with each finished track. Both share the same core (Python, Linux, academics). Python Engineer starts higher because its list overlaps your full-stack work; the Data/AI/ML role is where your ML experience stands out, but it needs Kubernetes and the Canonical stack.</p>
+  <div class="grid g2">${matchTable(JOB)}${matchTable(JOB2)}</div>
+  <div class="callout job">Portfolio checklist (what recruiters actually see): ☐ CV API on Kubernetes with Helm + probes + /metrics · ☐ Kubeflow pipeline + MLflow repo · ☐ your own charm · ☐ 2–3 merged upstream PRs · ☐ a profiled + packaged Python tool (snap) · ☐ CV updated with numbers.</div>`;
 V.settings = () => Pages.settings();
 V.profile = () => Pages.profile();
 window.resetAll = async () => {
