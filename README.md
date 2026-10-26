@@ -17,7 +17,8 @@ Opening `index.html` directly still works, but then progress lives only in the b
 Progress from this browser and `progress.json` are merged, so nothing you completed is lost. **Reset progress** saves a copy in `backups/` first.
 
 ## What's inside
-- **Roadmap**: 6 weeks, 9 tracks, 32 lessons, a boss battle per track
+- **Roadmap**: 10 tracks, 38 lessons, a boss battle per track, planned day by day from your time budget (Settings → Learning: time per day and study days per week). Labs count their real time (deploying Kubeflow ~3 h, the charm tutorial ~5 h) and 10 minutes a day go to flashcards; at 1 hour a day, 6 days a week, it takes about 23 weeks (19 without the Python Engineer track)
+- **Two roles**: the main target, Python and Kubernetes Software Engineer – Data, Workflows, AI/ML & Analytics, plus the general Python Engineer role. The extra 🛠️ Python Engineer track covers design, performance, concurrency, gRPC, Ubuntu packaging and Go; Job match shows your fit for both
 - **Lessons**: concept + analogy + diagram, videos & official docs, quiz, YAML puzzles, real-machine labs
 - **Step-by-step Learn tab**: each lesson is split into short steps (big picture, concepts with diagrams, real examples to copy and run, "predict the output", quick checks, common mistakes, key takeaways, explain it back). Continue unlocks after you answer; ← → keys move between steps; 🤖 Ask Kube on any step. Prefer one long page? Switch in Settings.
 - **Videos play inside the lesson** (Watch & read tab): the app searches YouTube for each topic and only shows videos that allow embedding. Pick another from the thumbnails, or paste your own link. Results are cached in `videos_cache.json`.

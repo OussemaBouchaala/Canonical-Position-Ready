@@ -332,3 +332,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .mdcode button{position:absolute;right:4px;top:4px;padding:2px 6px;font-size:12px;opacity:.6}.mdcode button:hover{opacity:1}
 .grade-out{margin-top:12px;padding:14px 16px;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:12px;background:var(--card2)}
 .grade-out .gh{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;font-weight:600}
+
+/* roadmap: the lessons planned for each week */
+.wk-items{display:flex;flex-direction:column;gap:2px;margin-top:8px}
+.wk-items a{color:var(--tx);text-decoration:none;font-size:14px;padding:3px 6px;border-radius:6px}
+.wk-items a:hover{background:var(--card2)}.wk-items a.ok{color:var(--mut)}
