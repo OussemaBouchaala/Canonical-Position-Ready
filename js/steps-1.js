@@ -7,7 +7,7 @@ STEPS.l1 = [
   { t: 'concept', h: 'What "the kernel" actually does', d: 'syscall', html: `<p>Your Python program can't touch the disk, the network card or RAM directly. Every time it opens a file or sends a request, it asks the kernel with a <b>system call</b> (syscall).</p>
 <div class="analogy">🏦 <b>Analogy:</b> a bank. You (the program) never walk into the vault. You fill a form at the counter (<code>open()</code>, <code>read()</code>, <code>socket()</code>) and the clerk (the kernel) does it for you, after checking you're allowed.</div>
 <p>This is why the kernel can isolate things: it sees every request, so it can lie to a process about what exists.</p>` },
-  { t: 'example', h: 'See the syscalls of a real command', html: `<p><code>strace</code> prints every syscall a program makes. Try it in WSL:</p>`, code: `strace -e trace=openat,read,write cat /etc/hostname`, out: `openat(AT_FDCWD, "/etc/hostname", O_RDONLY) = 3
+  { t: 'example', h: 'See the syscalls of a real command', html: `<p><code>strace</code> prints every syscall a program makes. Try it in your terminal (install it with <code>sudo apt install strace</code> if missing):</p>`, code: `strace -e trace=openat,read,write cat /etc/hostname`, out: `openat(AT_FDCWD, "/etc/hostname", O_RDONLY) = 3
 read(3, "my-laptop\\n", 131072)        = 10
 write(1, "my-laptop\\n", 10)            = 10
 my-laptop`, note: '<code>cat</code> opened the file (got file descriptor 3), read it, then wrote to file descriptor 1 (your screen). Three syscalls, that is all "cat" is.' },

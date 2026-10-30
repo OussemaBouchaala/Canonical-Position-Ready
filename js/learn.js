@@ -24,7 +24,7 @@ const Learn = (() => {
       case 'intro': case 'concept':
         return head + dia + s.html + `<div class="step-tools">${ask(`About the lesson "${l.title}", step "${s.h}": explain it again in a different way, with a new simple example.`)}</div>`;
       case 'example':
-        return head + dia + (s.html || '') + `<div class="ex"><div class="ex-bar"><span>💻 Try it</span><button class="ghost" onclick="navigator.clipboard.writeText(this.closest('.ex').querySelector('pre').innerText);toast('Copied')">📋 copy</button></div><pre>${esc(s.code)}</pre></div>` +
+        return head + dia + (s.html || '') + `<div class="ex"><div class="ex-bar"><span>💻 Try it</span><button class="ghost" onclick="navigator.clipboard.writeText(this.closest('.ex').querySelector('pre').innerText);toast('Copied')">📋 copy</button></div><pre>${esc(s.code)}</pre></div>` + RUN.btn(s.code, `ex_${l.id}_${i}`, l.id) +
           (s.out ? `<div class="ex out"><div class="ex-bar"><span>📤 Output</span></div><pre>${esc(s.out)}</pre></div>` : '') + (s.note ? `<div class="callout tip">💡 ${s.note}</div>` : '') +
           `<div class="step-tools">${ask(`Explain this example line by line (lesson "${l.title}"):\n${s.code}`)}</div>`;
       case 'predict':

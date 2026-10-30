@@ -10,6 +10,7 @@ const Tutor = (() => {
 
   const SYSTEM = () => `You are "Kube", a friendly, rigorous tutor inside "Canonical Academy", a learning platform preparing Oussema Bouchaala for two Canonical roles: "Python and Kubernetes Software Engineer – Data, Workflows, AI/ML & Analytics" (main target: Charmed Kubeflow, MLflow, Juju charms, MicroK8s) and the general "Python Engineer" role (maintainable, performant Python, gRPC, Ubuntu packaging, Go/Rust).
 His background (from his CV): engineering student at INSAT (2022–2027); Computer Vision intern at Octomiro (YOLOv8 + SAHI tiny-object detection, ByteTrack, Grounding DINO, SAM2, quantized Qwen2.5-VL, GPU pipelines served with FastAPI, Docker and NGINX); Software Engineer at Bit & Books (full-stack Angular/React/Next.js/Node/TypeScript/FastAPI, PostgreSQL and MongoDB data modeling and migrations, CI/CD with GitHub Actions and Docker); AI/Data Science intern at Yonnov'IA (Odoo Python automation, data pipelines, anomaly detection); projects: livestock YOLO + BoT-SORT MLOps workflow, clinical-trial ETL, fake-review NLP, real-estate price predictor; also knows C/C++, Java, SQL, DVC. He is NEW to Kubernetes and has no open-source contributions yet. He studies about one hour a day, so keep answers focused.
+His computer runs Ubuntu natively (no WSL, no VM): give commands for Ubuntu 24.04 directly (apt, snap, systemd), and never Windows/PowerShell/WSL steps.
 Teaching style:
 - Start from intuition and analogies, then precise technical detail, then a concrete command or code snippet he can run on MicroK8s/Ubuntu.
 - Connect concepts to his own projects (YOLO livestock detection, SAHI, FastAPI inference API, clinical-trial ETL) and to Canonical's products.
@@ -127,7 +128,7 @@ Current context in the platform: ${context()}`;
     const msgs = box.querySelector('#tMsgs'), input = box.querySelector('#tIn');
     const add = (cls, html) => { const d = document.createElement('div'); d.className = 'msg ' + cls + (cls === 'a' ? ' md' : ''); d.innerHTML = html; msgs.append(d); msgs.scrollTop = 1e9; return d; };
     const hello = () => {
-      if (!srv) return add('a', 'The tutor needs the local server. Start the app with <b>start.bat</b>, then open <code>http://localhost:8768</code>.');
+      if (!srv) return add('a', 'The tutor needs the local server. Start the app with <b>./start.sh</b>, then open <code>http://localhost:8768</code>.');
       if (!settings) return add('a', '<span class="t-dim">Loading AI settings…</span>');
       if (!ready()) return add('a', `Hi 👋 To chat, pick an AI provider and add its key in <a href="#" data-set>⚙️ AI settings</a>. Free options: Google Gemini, Groq, OpenRouter (":free" models) or Ollama on your PC.`);
       add('a', `Hi Oussema 👋 I'm Kube, your tutor (<code>${esc(cur().label)}</code> · <code>${esc(cur().model)}</code>). Ask me anything about Kubernetes, MLOps or charms. I know which lesson you're on.`);
@@ -195,7 +196,7 @@ Current context in the platform: ${context()}`;
       catch (er) { out.innerHTML = er.message === 'NO_KEY' ? 'Add an API key first in <a href="#" data-set>⚙️ AI settings</a>.' : `<span class="t-err">${esc(er.message)}</span>`; }
     };
 
-    if (srv) fetch('/api/llm/settings').then(r => r.json()).then(s => { settings = s; msgs.innerHTML = ''; hello(); replay(); refreshHeader(); }).catch(() => { msgs.innerHTML = ''; add('a', '<span class="t-err">Could not load AI settings. Is start.bat running?</span>'); });
+    if (srv) fetch('/api/llm/settings').then(r => r.json()).then(s => { settings = s; msgs.innerHTML = ''; hello(); replay(); refreshHeader(); }).catch(() => { msgs.innerHTML = ''; add('a', '<span class="t-err">Could not load AI settings. Is ./start.sh running?</span>'); });
     hello();
     return { open: q => { box.classList.add('open'); if (q) { input.value = q; input.focus(); } }, settings: () => { box.classList.add('open'); openSettings(); }, summary,
       // One question answered outside the chat (e.g. grading inside a lesson); doesn't touch the chat history

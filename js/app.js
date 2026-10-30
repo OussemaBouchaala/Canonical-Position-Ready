@@ -18,7 +18,7 @@ const mergeStates = (a, b) => {
   if ((a.epoch || 0) !== (b.epoch || 0)) return { ...defaults(), ...((a.epoch || 0) > (b.epoch || 0) ? a : b) };
   const m = { ...defaults(), ...b, ...a };
   ['xp', 'flashReviews', 'tutorQs'].forEach(k => { m[k] = Math.max(a[k] || 0, b[k] || 0); });
-  ['done', 'quiz', 'yaml', 'missions', 'bosses', 'badges', 'flags', 'labXp', 'vids', 'read', 'checks', 'notes', 'grades', 'qans', 'picks', 'pred', 'yamlIn', 'tab'].forEach(k => { m[k] = { ...(b[k] || {}), ...(a[k] || {}) }; });
+  ['done', 'quiz', 'yaml', 'missions', 'bosses', 'badges', 'flags', 'labXp', 'vids', 'read', 'checks', 'notes', 'grades', 'qans', 'picks', 'pred', 'yamlIn', 'tab', 'labDir'].forEach(k => { m[k] = { ...(b[k] || {}), ...(a[k] || {}) }; });
   m.labs = { ...(b.labs || {}) }; Object.entries(a.labs || {}).forEach(([k, v]) => { m.labs[k] = { ...(m.labs[k] || {}) }; Object.entries(v).forEach(([i, x]) => { m.labs[k][i] = x || !!m.labs[k][i]; }); });
   m.flash = { ...(b.flash || {}) }; Object.entries(a.flash || {}).forEach(([i, c]) => { const o = m.flash[i]; if (!o || (c.t || c.due || 0) >= (o.t || o.due || 0)) m.flash[i] = c; });
   m.days = [...new Set([...(b.days || []), ...(a.days || [])])].sort();
@@ -30,7 +30,7 @@ const mergeStates = (a, b) => {
 const replaceState = n => { Object.keys(st).forEach(k => delete st[k]); Object.assign(st, n); };
 // Lab steps ticked before XP was tracked per step already paid their XP: record them so re-ticking can't pay again.
 const migrate = () => { const D = defaults(); st.profile = { ...D.profile, ...st.profile }; st.prefs = { ...D.prefs, ...st.prefs }; st.qstats = { ...D.qstats, ...st.qstats };
-  ['daily', 'step', 'read', 'checks', 'notes', 'grades', 'vids', 'qans', 'picks', 'pred', 'yamlIn', 'tab'].forEach(k => { st[k] = st[k] || {}; }); st.labXp = st.labXp || {}; Object.entries(st.labs || {}).forEach(([k, v]) => Object.entries(v).forEach(([i, x]) => { if (x) st.labXp[k + ':' + i] = 1; })); };
+  ['daily', 'step', 'read', 'checks', 'notes', 'grades', 'vids', 'qans', 'picks', 'pred', 'yamlIn', 'tab', 'labDir'].forEach(k => { st[k] = st[k] || {}; }); st.labXp = st.labXp || {}; Object.entries(st.labs || {}).forEach(([k, v]) => Object.entries(v).forEach(([i, x]) => { if (x) st.labXp[k + ':' + i] = 1; })); };
 migrate();
 
 function push() {
@@ -204,7 +204,7 @@ const VIDS = {};
 function loadVideos(l) {
   l.videos.forEach(async (v, i) => {
     const key = `${l.id}:${i}`; VIDS[key] = { v, lid: l.id, i, list: [], err: '' };
-    if (!SERVER) VIDS[key].err = 'Embedded videos need the app started with start.bat.';
+    if (!SERVER) VIDS[key].err = 'Embedded videos need the app started with ./start.sh.';
     else try { const r = await fetch('/api/videos?q=' + encodeURIComponent(v.q)); const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); VIDS[key].list = j.videos; }
     catch (e) { VIDS[key].err = 'Could not load videos: ' + e.message; }
     renderSlot(key);
@@ -285,8 +285,9 @@ window.checkYaml = id => { const A = window['YA_' + id]; let ok = 0; A.forEach((
 // ---------- lab
 function labHTML(l) {
   const key = l.id, done = st.labs[key] || {};
-  return `<h3>🛠️ ${l.lab.title}</h3><p class="sub">Do this on your real machine (WSL Ubuntu / Multipass). Tick each step when done: +10 XP each.</p>
-  ${l.lab.steps.map((s, i) => `<label class="step ${done[i] ? 'done' : ''}"><input type="checkbox" ${done[i] ? 'checked' : ''} onchange="labTick('${key}',${i},this.checked)"><div style="flex:1"><b>${s.t}</b>${s.c ? `<pre>${s.c.replace(/</g, '&lt;')}</pre><button style="font-size:12px;padding:3px 10px" onclick="event.preventDefault();navigator.clipboard.writeText(${JSON.stringify(s.c).replace(/"/g, '&quot;')});toast('Copied')">📋 copy</button>` : ''}</div></label>`).join('')}
+  return `${RUN.folder(key)}<h3>🛠️ ${l.lab.title}</h3><p class="sub">Do this in a terminal on your Ubuntu machine${RUN.needs(key) ? ', inside your project folder' : ''}. Tick each step when done: +10 XP each.</p>
+  ${l.lab.steps.map((s, i) => `<label class="step ${done[i] ? 'done' : ''}"><input type="checkbox" ${done[i] ? 'checked' : ''} onchange="labTick('${key}',${i},this.checked)"><div style="flex:1"><b>${s.t}</b>${s.c ? `<pre>${s.c.replace(/</g, '&lt;')}</pre><button style="font-size:12px;padding:3px 10px" onclick="event.preventDefault();navigator.clipboard.writeText(${JSON.stringify(s.c).replace(/"/g, '&quot;')});toast('Copied')">📋 copy</button> ${RUN.btn(s.c, `${key}_${i}`, key)}` : ''}</div></label>`).join('')}
+  ${RUN.shell(key)}
   <div class="callout tip">Stuck? Paste the error into the 🤖 tutor: "I ran X and got Y".</div>`;
 }
 window.labTick = (k, i, v) => { st.labs[k] = st.labs[k] || {}; st.labs[k][i] = v; const paid = st.labXp[k + ':' + i]; if (v && !paid) st.labXp[k + ':' + i] = 1; save(); if (v && !paid) gain(10, 'Lab step'); route(); };
@@ -404,7 +405,7 @@ V.settings = () => Pages.settings();
 V.profile = () => Pages.profile();
 window.resetAll = async () => {
   if (!confirm('Reset all progress?')) return;
-  if (SERVER) { const r = await fetch('/api/reset', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }).catch(() => null); if (!r || !r.ok) return toast('❌ Reset failed: is start.bat running?'); }
+  if (SERVER) { const r = await fetch('/api/reset', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }).catch(() => null); if (!r || !r.ok) return toast('❌ Reset failed: is ./start.sh running?'); }
   clearTimeout(saveT); localStorage.removeItem(LSK); location.reload();
 };
 window.exportState = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(st, null, 1)], { type: 'application/json' })); a.download = 'canonical-academy-progress.json'; a.click(); };
@@ -443,5 +444,6 @@ window.TUT = Tutor.mount(() => {
     const before = JSON.stringify(r.state || {}); replaceState(mergeStates(st, r.state || {})); migrate(); serverRev = r.rev || 0; syncOk = true;
     if (JSON.stringify(st) !== before) save(); else try { localStorage.setItem(LSK, JSON.stringify(st)); } catch {} } catch { syncOk = false; } }
   if (location.hash.startsWith('#lesson')) lessonTab = st.tab[location.hash.split('/')[1]] || 'learn';
+  await RUN.load();
   applyTheme(); route();
 })();
