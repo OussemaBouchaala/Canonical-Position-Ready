@@ -34,9 +34,9 @@ const TRACKS = [
     quiz: [
       { q: 'What makes a container isolated from other processes?', o: ['A hypervisor', 'Kernel namespaces + cgroups', 'A separate kernel per container', 'The Docker daemon encrypting memory'], a: 1, e: 'Containers share the host kernel; namespaces isolate the view, cgroups limit resources.' },
       { q: 'Which layer talks directly to hardware?', o: ['bash', 'systemd', 'The kernel', 'apt'], a: 2, e: 'Only the kernel touches hardware; everything else goes through system calls.' }],
-    lab: { title: 'Get Ubuntu on Windows (WSL2)', steps: [
-      { t: 'Open PowerShell as admin and install WSL with Ubuntu', c: 'wsl --install -d Ubuntu-24.04' },
-      { t: 'Reboot, open "Ubuntu", create your user, then update', c: 'sudo apt update && sudo apt upgrade -y' },
+    lab: { title: 'Meet your Ubuntu machine', steps: [
+      { t: 'Check which Ubuntu, kernel and init system you run', c: 'lsb_release -a; uname -r; ps -p 1 -o comm=' },
+      { t: 'Update the system (in your terminal: it asks for your password)', c: 'sudo apt update && sudo apt upgrade -y' },
       { t: 'See namespaces of your shell process', c: 'ls -l /proc/$$/ns' },
       { t: 'See the cgroup your shell lives in', c: 'cat /proc/$$/cgroup' }] } },
   { id: 'l2', title: 'Shell survival kit: files, permissions, processes', xp: 70, min: 30,
@@ -204,7 +204,7 @@ jobs:
       { q: 'Image vs container:', o: ['they are the same thing with two names', 'image is template, container is running instance', 'container is template, image is running instance', 'image runs the app, container stores its data'], a: 1, e: 'Template vs instance.' },
       { q: 'Why do containers start faster than VMs?', o: ['they use a smaller, faster CPU', 'no OS boot, just a process', 'their code is compiled ahead of time', 'images are always stored on SSD'], a: 1, e: 'They reuse the running host kernel.' }],
     lab: { title: 'First containers', steps: [
-      { t: 'Install Docker in WSL Ubuntu (or Docker Desktop with WSL backend)', c: 'curl -fsSL https://get.docker.com | sh && sudo usermod -aG docker $USER' },
+      { t: 'Install Docker (in your terminal, then log out and back in so the docker group applies)', c: 'curl -fsSL https://get.docker.com | sh && sudo usermod -aG docker $USER' },
       { t: 'Run nginx and open it', c: 'docker run -d -p 8080:80 --name web nginx && curl localhost:8080' },
       { t: 'Look inside it', c: 'docker exec -it web bash -c "ps aux; cat /etc/os-release"' }] } },
   { id: 'c2', title: 'Writing great Dockerfiles for ML services', xp: 80, min: 35, diagram: 'dockerFlow',
@@ -279,7 +279,7 @@ volumes: { mlruns: {} }</pre>
       { q: 'Which component picks the node for a new pod?', o: ['kubelet', 'kube-proxy', 'kube-scheduler', 'controller-manager'], a: 2, e: 'The scheduler.' },
       { q: 'kubectl talks to…', o: ['each node directly', 'etcd directly', 'the kube-apiserver', 'Docker'], a: 2, e: 'Everything goes through the API server.' }],
     lab: { title: 'Install MicroK8s for real', steps: [
-      { t: 'In WSL Ubuntu (systemd enabled) or Multipass VM, install MicroK8s', c: 'sudo snap install microk8s --classic --channel=1.31/stable' },
+      { t: 'Install MicroK8s with snap (in your terminal)', c: 'sudo snap install microk8s --classic --channel=1.31/stable' },
       { t: 'Add yourself to the group and wait until ready', c: 'sudo usermod -aG microk8s $USER && newgrp microk8s && microk8s status --wait-ready' },
       { t: 'Alias kubectl', c: "echo \"alias kubectl='microk8s kubectl'\" >> ~/.bashrc && source ~/.bashrc" },
       { t: 'See your cluster', c: 'kubectl get nodes -o wide && kubectl get pods -A' }] } },

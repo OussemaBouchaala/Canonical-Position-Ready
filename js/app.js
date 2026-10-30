@@ -204,7 +204,7 @@ const VIDS = {};
 function loadVideos(l) {
   l.videos.forEach(async (v, i) => {
     const key = `${l.id}:${i}`; VIDS[key] = { v, lid: l.id, i, list: [], err: '' };
-    if (!SERVER) VIDS[key].err = 'Embedded videos need the app started with start.bat.';
+    if (!SERVER) VIDS[key].err = 'Embedded videos need the app started with ./start.sh.';
     else try { const r = await fetch('/api/videos?q=' + encodeURIComponent(v.q)); const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); VIDS[key].list = j.videos; }
     catch (e) { VIDS[key].err = 'Could not load videos: ' + e.message; }
     renderSlot(key);
@@ -285,7 +285,7 @@ window.checkYaml = id => { const A = window['YA_' + id]; let ok = 0; A.forEach((
 // ---------- lab
 function labHTML(l) {
   const key = l.id, done = st.labs[key] || {};
-  return `<h3>🛠️ ${l.lab.title}</h3><p class="sub">Do this on your real machine (WSL Ubuntu / Multipass). Tick each step when done: +10 XP each.</p>
+  return `<h3>🛠️ ${l.lab.title}</h3><p class="sub">Do this in a terminal on your Ubuntu machine. Tick each step when done: +10 XP each.</p>
   ${l.lab.steps.map((s, i) => `<label class="step ${done[i] ? 'done' : ''}"><input type="checkbox" ${done[i] ? 'checked' : ''} onchange="labTick('${key}',${i},this.checked)"><div style="flex:1"><b>${s.t}</b>${s.c ? `<pre>${s.c.replace(/</g, '&lt;')}</pre><button style="font-size:12px;padding:3px 10px" onclick="event.preventDefault();navigator.clipboard.writeText(${JSON.stringify(s.c).replace(/"/g, '&quot;')});toast('Copied')">📋 copy</button>` : ''}</div></label>`).join('')}
   <div class="callout tip">Stuck? Paste the error into the 🤖 tutor: "I ran X and got Y".</div>`;
 }
@@ -404,7 +404,7 @@ V.settings = () => Pages.settings();
 V.profile = () => Pages.profile();
 window.resetAll = async () => {
   if (!confirm('Reset all progress?')) return;
-  if (SERVER) { const r = await fetch('/api/reset', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }).catch(() => null); if (!r || !r.ok) return toast('❌ Reset failed: is start.bat running?'); }
+  if (SERVER) { const r = await fetch('/api/reset', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }).catch(() => null); if (!r || !r.ok) return toast('❌ Reset failed: is ./start.sh running?'); }
   clearTimeout(saveT); localStorage.removeItem(LSK); location.reload();
 };
 window.exportState = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(st, null, 1)], { type: 'application/json' })); a.download = 'canonical-academy-progress.json'; a.click(); };

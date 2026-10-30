@@ -3,12 +3,15 @@
 Personal learning platform for the Canonical role **Python and Kubernetes Software Engineer – Data, Workflows, AI/ML & Analytics**.
 
 ## Start
-Double-click **`start.bat`** (needs Python 3). It opens http://localhost:8768.
+On Ubuntu (or any Linux), run `./start.sh` from this folder (needs Python 3, already on Ubuntu). It opens http://localhost:8768.
+On Windows, double-click **`start.bat`** instead.
+
+Labs assume you work on a native Ubuntu machine (24.04 recommended): Docker, MicroK8s, Juju and snaps install directly, no WSL or VM needed.
 
 Your data stays on your PC, in this folder:
 - `progress.json`: all progress (XP, lessons, quizzes, labs, missions, flashcards, badges)
 - `backups/progress-YYYY-MM-DD.json`: one backup per day, kept 21 days
-- `activity_log.csv`: XP history (open it in Excel)
+- `activity_log.csv`: XP history (open it in LibreOffice Calc)
 - `config.json`: AI tutor provider, keys and models (only the local server reads it; it is never served to the browser)
 
 The plan start date is set in Settings; the roadmap shows dates for each week and whether you are ahead or behind.
