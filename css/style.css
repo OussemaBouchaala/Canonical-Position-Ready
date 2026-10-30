@@ -346,3 +346,13 @@ button.run{font-size:12px;padding:3px 10px;background:var(--ok);border-color:var
 .run-live{color:var(--acc)}
 .runshell form{display:flex;gap:8px;margin-top:8px}
 .runshell input{flex:1;font-family:ui-monospace,monospace}
+.projcard h3{display:flex;align-items:center;gap:8px}
+.setup{list-style:none;padding:0;margin:8px 0}
+.setup li{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.setup li.ok{opacity:.7}
+.setup .mark{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:12.5px;background:var(--card2);border:1px solid var(--line)}
+.setup li.ok .mark{background:var(--ok);border-color:var(--ok);color:#fff}
+.setup pre{margin:8px 0 6px}
+.pickf{display:flex;gap:8px;margin-top:8px}.pickf input{flex:1;font-family:ui-monospace,monospace}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:12.5px;color:var(--mut);align-items:center}
+.chip{font-size:12px;padding:2px 10px;font-family:ui-monospace,monospace}

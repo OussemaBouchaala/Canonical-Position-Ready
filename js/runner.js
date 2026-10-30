@@ -37,7 +37,7 @@ const RUN = (() => {
     out[slot] = { text: `$ ${cmd}\n`, running: true, id };
     paint(slot);
     try {
-      const r = await fetch('/api/run', { method: 'POST', headers: { 'content-type': 'application/json', 'x-ca-token': info.token }, body: JSON.stringify({ cmd, id, dir }) });
+      const r = await fetch('/api/run', { method: 'POST', headers: { 'content-type': 'application/json', 'x-ca-token': info.token }, body: JSON.stringify({ cmd, id, dir, cwd: slot.startsWith('ex_') ? '' : projDir(dir) }) });
       if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || r.status); }
       const rd = r.body.getReader(), dec = new TextDecoder(); let buf = '';
       for (;;) {
@@ -72,13 +72,80 @@ const RUN = (() => {
   function shell(dir) {
     if (!SERVER || !info.canRun || !info.allowRun) return '';
     const slot = 'sh_' + dir;
-    return `<div class="card runshell"><b>🖥️ Terminal</b> <span class="req">runs in <code>${esc(info.labsDir)}/${dir}</code>, no password prompts</span>
+    return `<div class="card runshell"><b>🖥️ Terminal</b> <span class="req">runs in <code>${esc(projDir(dir) || info.labsDir + '/' + dir)}</code>, no password prompts</span>
       <form onsubmit="event.preventDefault();const c=this.c.value.trim();if(c)RUN.go(c,'${slot}','${dir}')"><input name="c" placeholder="ls -la" autocomplete="off" spellcheck="false"><button>▶ Run</button></form><div id="run_${slot}">${outHTML(slot)}</div></div>`;
+  }
+
+  // ---------- labs that work in one of your own projects: pick the folder, then get it ready step by step
+  const PY = 'one of your Python projects (Fake_Real_Reviews_Classifier or your intern_assignment work well)';
+  const NEEDS = {
+    p1: { what: PY, py: 1 }, p2: { what: PY, py: 1, tests: 1 }, p3: { what: PY, py: 1 }, p4: { what: 'the project you want a CI badge on', py: 1, gh: 1 },
+    e1: { what: PY, py: 1 }, e2: { what: 'your ETL or inference project (it needs a main script to profile)', py: 1 },
+    c2: { what: 'your FastAPI inference project (the API you will containerise)', py: 1, docker: 1 },
+    c3: { what: 'your FastAPI inference project (the API that goes next to MLflow)', py: 1, docker: 1, compose: 1 },
+    k5: { what: 'your FastAPI inference project', py: 1 }, a5: { what: 'your FastAPI inference project', py: 1 },
+    m2: { what: 'your YOLO training project', py: 1 } };
+  const facts = {}, projects = { list: null };  // lesson -> folder facts, read from the server
+  const projDir = id => (NEEDS[id] && st.labDir[id]) || '';
+
+  async function folderApi(path) {
+    const r = await fetch('/api/run/folder', { method: 'POST', headers: { 'content-type': 'application/json', 'x-ca-token': info.token }, body: JSON.stringify({ path }) });
+    const j = await r.json(); projects.list = j.projects || []; return j;
+  }
+
+  async function pick(id, path) {
+    path = (path || '').trim(); if (!path) return;
+    const j = await folderApi(path).catch(() => ({ error: 'server not reachable' }));
+    if (j.error) return toast('❌ ' + j.error);
+    facts[id] = j.facts; st.labDir[id] = j.facts.path; save(); route();
+  }
+
+  async function recheck(id) {
+    const j = await folderApi(st.labDir[id] || '').catch(() => ({}));
+    if (j.facts) facts[id] = j.facts; else if (st.labDir[id]) { delete st.labDir[id]; save(); }
+    route();
+  }
+
+  function setupSteps(id, f) {
+    const n = NEEDS[id], lab = `lab-${id}`, out = [];
+    out.push({ t: f ? `Project folder: <code>${esc(f.short)}</code>` : `Choose ${n.what}`, ok: !!f, pick: 1 });
+    if (!f) return out;
+    out.push(f.git
+      ? { t: `Work on a branch, so you can throw the lab away with <code>git switch -</code>`, c: `git add -A && git commit -qm "Before lab ${id}" ; git switch -c ${lab}`, ok: f.branch === lab, note: `You are on <code>${esc(f.branch || '?')}</code>.` }
+      : { t: 'Put the folder under git first, so every lab change can be undone', c: `git init && git add -A && git commit -qm "Before lab ${id}" && git switch -c ${lab}`, ok: false });
+    if (n.py) out.push({ t: 'Create a virtual environment and install the project in it', ok: f.venv,
+      c: `python3 -m venv .venv && . .venv/bin/activate && pip install -U pip && ${f.pyproject ? 'pip install -e .' : f.requirements ? 'pip install -r requirements.txt' : 'echo "no pyproject.toml or requirements.txt: install what the project imports"'}`,
+      note: f.venv ? 'Run buttons below activate it for you.' : 'If it says <i>ensurepip is not available</i>, run <code>sudo apt install python3-venv</code> in your terminal first.' });
+    if (n.tests) out.push({ t: 'Add a tests folder and the test tools', c: 'mkdir -p tests && touch tests/__init__.py && pip install pytest pytest-cov', ok: f.tests });
+    if (n.docker) out.push({ t: 'Docker is installed', ok: f.docker, note: f.docker ? '' : 'Do the <a href="#lesson/c1">First containers</a> lab first.' });
+    if (n.docker) out.push({ t: 'The project has a Dockerfile', ok: f.dockerfile, note: f.dockerfile ? '' : 'Write it from the lesson\'s Dockerfile (Learn tab), save it at the project root, then re-check.' });
+    if (n.compose) out.push({ t: 'The project has a compose file', ok: f.compose, note: f.compose ? '' : 'Save the compose file from the lesson as <code>compose.yaml</code>, then re-check.' });
+    if (n.gh) out.push({ t: 'The project is on GitHub', ok: /github\.com/.test(f.remote), c: 'gh repo create --source . --private --push',
+      note: /github\.com/.test(f.remote) ? `Remote: <code>${esc(f.remote)}</code>` : 'Needs the GitHub CLI: <code>sudo snap install gh</code> then <code>gh auth login</code> in your terminal.' });
+    return out;
+  }
+
+  // The "Before you start" card at the top of a lab that works in your own project.
+  function folder(id) {
+    const n = NEEDS[id]; if (!n || !SERVER) return '';
+    if (!info.allowRun) return `<div class="card projcard"><b>📁 This lab works in ${n.what}.</b>
+      <p class="req">Open a terminal in that folder (<code>cd ~/projects/&lt;name&gt;</code>), make a branch (<code>git switch -c lab-${id}</code>) and activate its virtualenv. Turn on Settings → Labs → "Run lab commands from the app" and this card checks the folder and guides each step for you.</p></div>`;
+    const dir = st.labDir[id], f = facts[id];
+    if (dir && !f) { recheck(id); return '<div class="card projcard">📁 Checking your project folder…</div>'; }
+    if (!projects.list) folderApi('').then(() => route()).catch(() => {});
+    const steps = setupSteps(id, f), ready = steps.every(s => s.ok);
+    const chips = (projects.list || []).map(p => `<button class="ghost chip" onclick="RUN.pick('${id}',${JSON.stringify(p).replace(/"/g, '&quot;')})">${esc(p)}</button>`).join('');
+    return `<div class="card projcard"><h3>📁 Before you start ${ready ? '<span class="pill ok">✓ ready</span>' : ''}</h3>
+      <p class="sub">This lab works in ${n.what}. The ▶ Run buttons and the terminal below run inside it.</p>
+      <ol class="setup">${steps.map((s, i) => `<li class="${s.ok ? 'ok' : ''}"><span class="mark">${s.ok ? '✓' : i + 1}</span><div style="flex:1"><b>${s.t}</b>
+        ${s.pick ? `<form class="pickf" onsubmit="event.preventDefault();RUN.pick('${id}',this.p.value)"><input name="p" value="${esc(f ? f.short : '')}" placeholder="~/projects/my-project" spellcheck="false"><button>Use this folder</button></form>${chips && !f ? `<div class="chips">Found in your home folder: ${chips}</div>` : ''}` : ''}
+        ${s.c && !s.ok ? `<pre>${esc(s.c)}</pre>${btn(s.c, `setup_${id}_${i}`, id)}` : ''}${s.note ? `<p class="req">${s.note}</p>` : ''}</div></li>`).join('')}</ol>
+      ${f ? `<button class="ghost" onclick="RUN.recheck('${id}')">↻ Re-check the folder</button> <button class="ghost" onclick="RUN.change('${id}')">Change folder</button>` : ''}</div>`;
   }
 
   const settingsCard = () => !SERVER ? '' : `<div class="card"><h3>🖥️ Labs</h3><p class="sub">Your machine: <b>${esc(info.os || 'unknown')}</b>.</p>
     ${info.canRun ? `<label class="fld" style="flex-direction:row;align-items:center;gap:10px"><input type="checkbox" ${info.allowRun ? 'checked' : ''} onchange="RUN.setAllow(this.checked)"> Run lab commands from the app</label>
     <p class="req">Adds ▶ Run to lab steps and examples. Commands run as you, in <code>${esc(info.labsDir)}</code>, and stop after 30 min. Steps with <code>sudo</code> stay in your own terminal. Only turn this on for labs you trust.</p>` : '<p class="req">Running commands from the app needs Linux with bash.</p>'}</div>`;
 
-  return { load, btn, go, stop, clear: s => { delete out[s]; paint(s); }, setAllow, shell, settingsCard, needsTerminal, get info() { return info; } };
+  return { load, btn, go, folder, pick, recheck, change: id => { delete st.labDir[id]; delete facts[id]; save(); route(); }, needs: id => !!NEEDS[id], stop, clear: s => { delete out[s]; paint(s); }, setAllow, shell, settingsCard, needsTerminal, get info() { return info; } };
 })();

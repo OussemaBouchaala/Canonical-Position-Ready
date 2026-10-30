@@ -26,6 +26,7 @@ MAX_TOKENS = 1500
 LOCK = threading.Lock()
 
 # Lab runner (the learner turned it on in Settings → Labs; off by default, Linux only).
+HOME = os.path.realpath(os.path.expanduser("~"))
 LABS = os.path.expanduser(os.environ.get("CA_LABS_DIR", "~/canonical-labs"))
 RUN_LIMIT = 30 * 60      # seconds before a lab command is stopped
 RUN_OUT_MAX = 2_000_000  # bytes of output streamed per command
@@ -247,6 +248,57 @@ def stop_run(p):
         pass
 
 
+def home_dir(p):
+    """A lab may work in one of your own projects: any existing folder inside your home folder."""
+    if not isinstance(p, str) or not p.strip():
+        return None
+    real = os.path.realpath(os.path.expanduser(p.strip()))
+    return real if (real == HOME or real.startswith(HOME + os.sep)) and os.path.isdir(real) else None
+
+
+def folder_facts(path):
+    """What a lab needs to know about a project folder, read from files only (nothing is run)."""
+    has = lambda *names: any(os.path.exists(os.path.join(path, n)) for n in names)
+    git_cfg = os.path.join(path, ".git", "config")
+    remote = ""
+    if os.path.isfile(git_cfg):
+        with open(git_cfg, encoding="utf-8", errors="replace") as f:
+            m = re.search(r"url\s*=\s*(\S+)", f.read())
+            remote = m.group(1) if m else ""
+    branch = ""
+    try:
+        with open(os.path.join(path, ".git", "HEAD"), encoding="utf-8") as f:
+            branch = f.read().strip().removeprefix("ref: refs/heads/")
+    except OSError:
+        pass
+    entries = os.listdir(path)
+    return {"path": path, "short": path.replace(HOME, "~", 1), "git": has(".git"), "remote": remote, "branch": branch,
+            "venv": has(".venv/bin/activate", "venv/bin/activate"),
+            "python": has("pyproject.toml", "setup.py", "requirements.txt") or any(e.endswith(".py") for e in entries),
+            "pyproject": has("pyproject.toml"), "requirements": has("requirements.txt"),
+            "tests": has("tests", "test") or any(e.startswith("test_") and e.endswith(".py") for e in entries),
+            "dockerfile": has("Dockerfile"), "compose": has("compose.yaml", "compose.yml", "docker-compose.yml", "docker-compose.yaml"),
+            "ci": has(".github/workflows"), "docker": shutil.which("docker") is not None, "files": len(entries)}
+
+
+def find_projects():
+    """Folders under ~ (two levels deep) that look like projects: a git repo or a Python package."""
+    out = []
+    for base in (HOME, os.path.join(HOME, "projects"), os.path.join(HOME, "Projects"), os.path.join(HOME, "code")):
+        try:
+            entries = sorted(os.scandir(base), key=lambda e: e.name.lower())
+        except OSError:
+            continue
+        for e in entries:
+            if e.name.startswith((".", "snap")) or not e.is_dir(follow_symlinks=False):
+                continue
+            if any(os.path.exists(os.path.join(e.path, n)) for n in (".git", "pyproject.toml", "requirements.txt")):
+                short = e.path.replace(HOME, "~", 1)
+                if short not in out:
+                    out.append(short)
+    return out[:40]
+
+
 def valid_state(s):
     return isinstance(s, dict) and isinstance(s.get("xp", 0), (int, float)) and isinstance(s.get("done", {}), dict)
 
@@ -333,13 +385,21 @@ class H(SimpleHTTPRequestHandler):
                 return self._chat(d)
             if path == "/api/run/settings":
                 return self._run_settings(d)
-            if path in ("/api/run", "/api/run/stop"):
+            if path in ("/api/run", "/api/run/stop", "/api/run/folder"):
                 if not (CAN_RUN and load_conf().get("allow_run")):
                     return self._json(403, {"error": "Running commands is off. Turn it on in Settings → Labs."})
                 if not secrets.compare_digest(self.headers.get("X-CA-Token", ""), RUN_TOKEN):
                     return self._json(403, {"error": "bad token: reload the page"})
                 if path == "/api/run":
                     return self._run(d)
+                if path == "/api/run/folder":
+                    out = {"projects": find_projects(), "home": HOME}
+                    if d.get("path"):
+                        real = home_dir(d["path"])
+                        if not real:
+                            return self._json(400, {**out, "error": "No such folder inside your home folder."})
+                        out["facts"] = folder_facts(real)
+                    return self._json(200, out)
                 p = RUNS.get(str(d.get("id")))
                 if p:
                     stop_run(p)
@@ -538,8 +598,16 @@ class H(SimpleHTTPRequestHandler):
         if not isinstance(cmd, str) or not cmd.strip() or len(cmd) > 10000 or not re.fullmatch(r"[\w-]{1,64}", rid):
             return self._json(400, {"error": "bad command"})
         sub = re.sub(r"[^\w-]", "", str(d.get("dir") or ""))[:40]
-        cwd = os.path.join(LABS, sub) if sub else LABS
-        os.makedirs(cwd, exist_ok=True)
+        cwd = home_dir(d.get("cwd")) if d.get("cwd") else None  # the project folder chosen for this lab
+        if d.get("cwd") and not cwd:
+            return self._json(400, {"error": "The lab's project folder no longer exists. Pick it again above."})
+        if not cwd:
+            cwd = os.path.join(LABS, sub) if sub else LABS
+            os.makedirs(cwd, exist_ok=True)
+        for venv in (".venv", "venv"):  # each command starts a fresh shell: use the project's virtualenv if it has one
+            if os.path.isfile(os.path.join(cwd, venv, "bin", "activate")):
+                cmd = f". {venv}/bin/activate\n{cmd}"
+                break
         env = {**os.environ, "TERM": "dumb", "NO_COLOR": "1", "PYTHONUNBUFFERED": "1", "DEBIAN_FRONTEND": "noninteractive"}
         # No stdin: anything that waits for input (sudo's password prompt, "-it") fails fast instead of hanging.
         p = subprocess.Popen(["bash", "-lc", cmd], cwd=cwd, env=env, stdin=subprocess.DEVNULL,

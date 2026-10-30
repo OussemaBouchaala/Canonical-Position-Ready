@@ -18,7 +18,7 @@ const mergeStates = (a, b) => {
   if ((a.epoch || 0) !== (b.epoch || 0)) return { ...defaults(), ...((a.epoch || 0) > (b.epoch || 0) ? a : b) };
   const m = { ...defaults(), ...b, ...a };
   ['xp', 'flashReviews', 'tutorQs'].forEach(k => { m[k] = Math.max(a[k] || 0, b[k] || 0); });
-  ['done', 'quiz', 'yaml', 'missions', 'bosses', 'badges', 'flags', 'labXp', 'vids', 'read', 'checks', 'notes', 'grades', 'qans', 'picks', 'pred', 'yamlIn', 'tab'].forEach(k => { m[k] = { ...(b[k] || {}), ...(a[k] || {}) }; });
+  ['done', 'quiz', 'yaml', 'missions', 'bosses', 'badges', 'flags', 'labXp', 'vids', 'read', 'checks', 'notes', 'grades', 'qans', 'picks', 'pred', 'yamlIn', 'tab', 'labDir'].forEach(k => { m[k] = { ...(b[k] || {}), ...(a[k] || {}) }; });
   m.labs = { ...(b.labs || {}) }; Object.entries(a.labs || {}).forEach(([k, v]) => { m.labs[k] = { ...(m.labs[k] || {}) }; Object.entries(v).forEach(([i, x]) => { m.labs[k][i] = x || !!m.labs[k][i]; }); });
   m.flash = { ...(b.flash || {}) }; Object.entries(a.flash || {}).forEach(([i, c]) => { const o = m.flash[i]; if (!o || (c.t || c.due || 0) >= (o.t || o.due || 0)) m.flash[i] = c; });
   m.days = [...new Set([...(b.days || []), ...(a.days || [])])].sort();
@@ -30,7 +30,7 @@ const mergeStates = (a, b) => {
 const replaceState = n => { Object.keys(st).forEach(k => delete st[k]); Object.assign(st, n); };
 // Lab steps ticked before XP was tracked per step already paid their XP: record them so re-ticking can't pay again.
 const migrate = () => { const D = defaults(); st.profile = { ...D.profile, ...st.profile }; st.prefs = { ...D.prefs, ...st.prefs }; st.qstats = { ...D.qstats, ...st.qstats };
-  ['daily', 'step', 'read', 'checks', 'notes', 'grades', 'vids', 'qans', 'picks', 'pred', 'yamlIn', 'tab'].forEach(k => { st[k] = st[k] || {}; }); st.labXp = st.labXp || {}; Object.entries(st.labs || {}).forEach(([k, v]) => Object.entries(v).forEach(([i, x]) => { if (x) st.labXp[k + ':' + i] = 1; })); };
+  ['daily', 'step', 'read', 'checks', 'notes', 'grades', 'vids', 'qans', 'picks', 'pred', 'yamlIn', 'tab', 'labDir'].forEach(k => { st[k] = st[k] || {}; }); st.labXp = st.labXp || {}; Object.entries(st.labs || {}).forEach(([k, v]) => Object.entries(v).forEach(([i, x]) => { if (x) st.labXp[k + ':' + i] = 1; })); };
 migrate();
 
 function push() {
@@ -285,7 +285,7 @@ window.checkYaml = id => { const A = window['YA_' + id]; let ok = 0; A.forEach((
 // ---------- lab
 function labHTML(l) {
   const key = l.id, done = st.labs[key] || {};
-  return `<h3>🛠️ ${l.lab.title}</h3><p class="sub">Do this in a terminal on your Ubuntu machine. Tick each step when done: +10 XP each.</p>
+  return `${RUN.folder(key)}<h3>🛠️ ${l.lab.title}</h3><p class="sub">Do this in a terminal on your Ubuntu machine${RUN.needs(key) ? ', inside your project folder' : ''}. Tick each step when done: +10 XP each.</p>
   ${l.lab.steps.map((s, i) => `<label class="step ${done[i] ? 'done' : ''}"><input type="checkbox" ${done[i] ? 'checked' : ''} onchange="labTick('${key}',${i},this.checked)"><div style="flex:1"><b>${s.t}</b>${s.c ? `<pre>${s.c.replace(/</g, '&lt;')}</pre><button style="font-size:12px;padding:3px 10px" onclick="event.preventDefault();navigator.clipboard.writeText(${JSON.stringify(s.c).replace(/"/g, '&quot;')});toast('Copied')">📋 copy</button> ${RUN.btn(s.c, `${key}_${i}`, key)}` : ''}</div></label>`).join('')}
   ${RUN.shell(key)}
   <div class="callout tip">Stuck? Paste the error into the 🤖 tutor: "I ran X and got Y".</div>`;
