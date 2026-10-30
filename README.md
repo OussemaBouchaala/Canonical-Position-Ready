@@ -26,6 +26,7 @@ Progress from this browser and `progress.json` are merged, so nothing you comple
 - **Step-by-step Learn tab**: each lesson is split into short steps (big picture, concepts with diagrams, real examples to copy and run, "predict the output", quick checks, common mistakes, key takeaways, explain it back). Continue unlocks after you answer; ← → keys move between steps; 🤖 Ask Kube on any step. Prefer one long page? Switch in Settings.
 - **Videos play inside the lesson** (Watch & read tab): the app searches YouTube for each topic and only shows videos that allow embedding. Pick another from the thumbnails, or paste your own link. Results are cached in `videos_cache.json`.
 - **K8s Simulator**: 3-node fake MicroK8s cluster; real kubectl syntax; live view of pods dying/healing; missions
+- **Run labs from the app** (Ubuntu/Linux, off by default): Settings → Labs → "Run lab commands from the app" adds ▶ Run to lab steps and examples plus a small terminal under each lab. Commands run as you in `~/canonical-labs/<lesson>`, stream their output into the page, can be stopped, and stop on their own after 30 minutes. Steps that need `sudo` or a keyboard are marked "run this one in your terminal"
 - **Flashcards**: spaced repetition (Leitner)
 - **Job match**: requirement-by-requirement progress
 - **XP, levels, streaks, badges, daily goal**

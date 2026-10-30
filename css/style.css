@@ -337,3 +337,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .wk-items{display:flex;flex-direction:column;gap:2px;margin-top:8px}
 .wk-items a{color:var(--tx);text-decoration:none;font-size:14px;padding:3px 6px;border-radius:6px}
 .wk-items a:hover{background:var(--card2)}.wk-items a.ok{color:var(--mut)}
+/* lab runner */
+button.run{font-size:12px;padding:3px 10px;background:var(--ok);border-color:var(--ok);color:#fff}
+.runbox{margin-top:8px;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:auto}
+.runbox .runout{margin:0;border:0;border-radius:0;max-height:320px;white-space:pre-wrap;word-break:break-word;font-size:12.5px}
+.runfoot{display:flex;justify-content:space-between;align-items:center;padding:4px 10px;background:var(--card2);font-size:12.5px}
+.runfoot button{font-size:12px;padding:2px 8px}
+.run-live{color:var(--acc)}
+.runshell form{display:flex;gap:8px;margin-top:8px}
+.runshell input{flex:1;font-family:ui-monospace,monospace}

@@ -286,7 +286,8 @@ window.checkYaml = id => { const A = window['YA_' + id]; let ok = 0; A.forEach((
 function labHTML(l) {
   const key = l.id, done = st.labs[key] || {};
   return `<h3>🛠️ ${l.lab.title}</h3><p class="sub">Do this in a terminal on your Ubuntu machine. Tick each step when done: +10 XP each.</p>
-  ${l.lab.steps.map((s, i) => `<label class="step ${done[i] ? 'done' : ''}"><input type="checkbox" ${done[i] ? 'checked' : ''} onchange="labTick('${key}',${i},this.checked)"><div style="flex:1"><b>${s.t}</b>${s.c ? `<pre>${s.c.replace(/</g, '&lt;')}</pre><button style="font-size:12px;padding:3px 10px" onclick="event.preventDefault();navigator.clipboard.writeText(${JSON.stringify(s.c).replace(/"/g, '&quot;')});toast('Copied')">📋 copy</button>` : ''}</div></label>`).join('')}
+  ${l.lab.steps.map((s, i) => `<label class="step ${done[i] ? 'done' : ''}"><input type="checkbox" ${done[i] ? 'checked' : ''} onchange="labTick('${key}',${i},this.checked)"><div style="flex:1"><b>${s.t}</b>${s.c ? `<pre>${s.c.replace(/</g, '&lt;')}</pre><button style="font-size:12px;padding:3px 10px" onclick="event.preventDefault();navigator.clipboard.writeText(${JSON.stringify(s.c).replace(/"/g, '&quot;')});toast('Copied')">📋 copy</button> ${RUN.btn(s.c, `${key}_${i}`, key)}` : ''}</div></label>`).join('')}
+  ${RUN.shell(key)}
   <div class="callout tip">Stuck? Paste the error into the 🤖 tutor: "I ran X and got Y".</div>`;
 }
 window.labTick = (k, i, v) => { st.labs[k] = st.labs[k] || {}; st.labs[k][i] = v; const paid = st.labXp[k + ':' + i]; if (v && !paid) st.labXp[k + ':' + i] = 1; save(); if (v && !paid) gain(10, 'Lab step'); route(); };
@@ -443,5 +444,6 @@ window.TUT = Tutor.mount(() => {
     const before = JSON.stringify(r.state || {}); replaceState(mergeStates(st, r.state || {})); migrate(); serverRev = r.rev || 0; syncOk = true;
     if (JSON.stringify(st) !== before) save(); else try { localStorage.setItem(LSK, JSON.stringify(st)); } catch {} } catch { syncOk = false; } }
   if (location.hash.startsWith('#lesson')) lessonTab = st.tab[location.hash.split('/')[1]] || 'learn';
+  await RUN.load();
   applyTheme(); route();
 })();
